@@ -1,5 +1,7 @@
 # Smart Contract Security Lab
 
+[![CI](https://github.com/Vuduykhang2306/smart-contract-security-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/Vuduykhang2306/smart-contract-security-lab/actions/workflows/ci.yml)
+
 A smart contract audit carried out end to end. There is a tax token with bugs
 in it, a runnable proof of concept for each one, a report, a patched version of
 the contract, and a retest suite that replays every exploit against the patch.
