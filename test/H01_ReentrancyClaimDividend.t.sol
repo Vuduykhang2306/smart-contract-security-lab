@@ -10,7 +10,7 @@ contract H01_ReentrancyClaimDividend is BaseSetup {
 
     function setUp() public {
         _deploy();
-        attacker = new ReentrantClaimer(token);
+        attacker = new ReentrantClaimer(address(token));
 
         // The pool holds 10 ETH. The attacker is entitled to 1 of them.
         vm.deal(deployer, 10 ether);

