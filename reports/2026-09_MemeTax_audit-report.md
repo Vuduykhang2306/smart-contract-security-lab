@@ -88,7 +88,7 @@ Totals: 3 High, 2 Medium, 2 Low, 1 Informational.
 ### H-01 — Reentrancy in `claimDividend()` drains the entire dividend pool
 
 **Severity** High (high impact, high likelihood) · **Status** Fixed
-**Location** `src/MemeTax.sol:106-114`
+**Location** `src/MemeTax.sol:102-110`
 
 #### Description
 
@@ -154,7 +154,7 @@ exactly 1 ETH, `reentries() == 0`, and Alice still withdraws 9 ETH.
 ### H-02 — `setBlacklist()` has no access control
 
 **Severity** High (high impact, high likelihood) · **Status** Fixed
-**Location** `src/MemeTax.sol:77-79`
+**Location** `src/MemeTax.sol:74-76`
 
 #### Description
 
@@ -210,7 +210,7 @@ Fixed. `setBlacklist()` is `onlyOwner` and emits `BlacklistUpdated`. Retest:
 ### H-03 — `setTaxes()` has no upper bound
 
 **Severity** High (high impact, medium likelihood) · **Status** Fixed
-**Location** `src/MemeTax.sol:69-72`
+**Location** `src/MemeTax.sol:68-71`
 
 #### Description
 
@@ -270,7 +270,7 @@ Fixed. `MAX_TAX = 10` is enforced on both values; `setTaxes(0, 100)` reverts wit
 ### M-01 — `_swapBack()` has no reentrancy lock
 
 **Severity** Medium (high impact, low likelihood) · **Status** Fixed
-**Location** `src/MemeTax.sol:126-131`, `src/MemeTax.sol:157-176`
+**Location** `src/MemeTax.sol:123-125`, `src/MemeTax.sol:156-176`
 
 #### Description
 
@@ -339,7 +339,7 @@ action is now harmless.
 ### M-02 — Fee payouts ignore their return value
 
 **Severity** Medium (medium impact, medium likelihood) · **Status** Fixed
-**Location** `src/MemeTax.sol:173-175`
+**Location** `src/MemeTax.sol:172-175`
 
 #### Description
 
@@ -401,7 +401,7 @@ transfer. Retests: `test_retest_M02_fees_are_accrued_not_pushed` and
 ### L-01 — Fee arithmetic divides before it multiplies
 
 **Severity** Low (low impact, high likelihood) · **Status** Fixed
-**Location** `src/MemeTax.sol:147`
+**Location** `src/MemeTax.sol:141`
 
 #### Description
 
@@ -451,7 +451,7 @@ pays 4) and `test_retest_L01_ordinary_amounts_are_no_longer_undercharged`
 ### L-02 — `setMaxWallet(0)` freezes every non-exempt transfer
 
 **Severity** Low (high impact, low likelihood) · **Status** Fixed
-**Location** `src/MemeTax.sol:87-89`
+**Location** `src/MemeTax.sol:83-85`
 
 #### Description
 
