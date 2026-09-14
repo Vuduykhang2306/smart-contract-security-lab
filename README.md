@@ -108,11 +108,13 @@ version:
 
 ## Roadmap
 
-- Foundry invariant suite: `sum(balances) == totalSupply`,
+Tracked as issues, in the order I plan to get to them.
+
+- [#1](../../issues/1) Foundry invariant suite: `sum(balances) == totalSupply`,
   `sum(feesOwed) <= address(this).balance`
-- Echidna property tests over the same invariants
-- Anchor/Solana lab backing `docs/checklist-solana-spl.md` with real PoCs
-- Writeups for Ethernaut and Damn Vulnerable DeFi
+- [#2](../../issues/2) Echidna property tests over the same invariants
+- [#3](../../issues/3) Anchor lab to put real PoCs behind the Solana checklist
+- [#4](../../issues/4) Ethernaut and Damn Vulnerable DeFi writeups
 
 ## About
 

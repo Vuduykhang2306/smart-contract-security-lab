@@ -109,11 +109,13 @@ Chi tiết trong [`docs/audit-process.md`](docs/audit-process.md). Tóm tắt:
 
 ## Lộ trình
 
-- Bộ invariant test bằng Foundry: `sum(balances) == totalSupply`,
+Theo dõi bằng issue, xếp theo thứ tự định làm.
+
+- [#1](../../issues/1) Bộ invariant test bằng Foundry: `sum(balances) == totalSupply`,
   `sum(feesOwed) <= address(this).balance`
-- Property test bằng Echidna trên cùng các bất biến đó
-- Lab Anchor/Solana để có PoC thật cho `docs/checklist-solana-spl.md`
-- Writeup Ethernaut và Damn Vulnerable DeFi
+- [#2](../../issues/2) Property test bằng Echidna trên cùng các bất biến đó
+- [#3](../../issues/3) Lab Anchor để có PoC thật đứng sau checklist Solana
+- [#4](../../issues/4) Writeup Ethernaut và Damn Vulnerable DeFi
 
 ## Giới thiệu
 
