@@ -1,0 +1,27 @@
+# Echidna campaign against the remediated token.
+# Run: echidna . --contract MemeTaxFixedEchidna --config echidna.yaml
+
+# The four properties are `echidna_`-prefixed view functions that must stay
+# true after every call, which is the same shape as a Foundry invariant.
+testMode: property
+
+# Long sequences matter here: INV-02 only breaks if fees and dividends are
+# accrued and then claimed in an order that leaves one of them unbacked.
+seqLen: 100
+testLimit: 50000
+shrinkLimit: 5000
+
+# Keeps the sequences that reached new code, plus `covered.*.txt`, which is how
+# coverage is checked - Echidna prints no call summary of its own.
+corpusDir: echidna-corpus
+
+# No cheatcodes, so ETH for `fundRouter` and `depositDividend` has to come from
+# the harness's own balance. 100,000 ETH, matching the Foundry setup's vm.deal.
+balanceContract: 100000000000000000000000
+
+# Only the harness is fuzzed. The Puppets exist to give calls a sender, not to
+# be called directly.
+allContracts: false
+
+# crytic-compile skips `test/` under Foundry by default, and the harness lives there.
+cryticArgs: ["--foundry-compile-all"]

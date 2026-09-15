@@ -77,6 +77,30 @@ tiền của ai".
 Những hướng đi hỏng trong lúc làm, gồm hai lần viết lại M-01, tôi ghi trong
 [`docs/notes.md`](docs/notes.md).
 
+## Hai công cụ fuzz, và một đối chứng âm
+
+Bốn tính chất trong [`test/invariant/`](test/invariant/) được chạy lại bằng
+Echidna ở [`test/echidna/`](test/echidna/). Cả hai đều xanh, và không công cụ
+nào tìm thêm được thứ công cụ kia bỏ sót — một kết quả âm, và tôi ghi lại đúng
+như vậy.
+
+Thứ đáng giá hơn sự đồng thuận đó là cái đối chứng. Một lần chạy fuzz ra xanh có
+thể có nghĩa là code đúng, cũng có thể có nghĩa là harness chưa bao giờ chạm tới
+chỗ cần chạm, và nhìn output thì hai trường hợp giống hệt nhau. Nên tôi chĩa
+đúng bộ tính chất đó vào `src/MemeTax.sol` — bản đã biết chắc là hỏng — và bắt
+nó phải đỏ:
+
+```
+echidna_supplyIsConserved:       passing
+echidna_maxWalletHasFloor:       passing
+echidna_ethObligationsAreBacked: FAILED   <- H-04, trong 5 lời gọi
+echidna_taxNeverExceedsCap:      FAILED   <- H-03, trong 1
+```
+
+CI sẽ fail nếu một trong hai cái đó bỗng dưng xanh trở lại. Trong harness không
+có chữ `_swapBack()` nào; fuzzer tự đi tới H-04 từ một lần nạp cổ tức rồi một
+lệnh giao dịch bình thường.
+
 ## Rà soát công khai
 
 [`reviews/2026-09_FatTokenV5/`](reviews/2026-09_FatTokenV5/) — bài rà soát tự
@@ -101,6 +125,7 @@ test/
   H0*/M0*/L0*.t.sol        mỗi finding một file
   Retest_Fixed.t.sol       chạy lại mọi exploit trên bản vá
   invariant/               4 tính chất kiểm trên bản đã vá
+  echidna/                 cùng 4 tính chất chạy bằng Echidna, kèm đối chứng âm
   attackers/, mocks/       contract tấn công và bản mô phỏng router Uniswap V2
 reports/
   2026-09_MemeTax_audit-report.md
@@ -137,7 +162,7 @@ Chi tiết trong [`docs/audit-process.md`](docs/audit-process.md). Tóm tắt:
 Theo dõi bằng issue, xếp theo thứ tự định làm.
 
 - ~~[#1](../../issues/1) Bộ invariant test bằng Foundry~~ — xong, và nó tìm ra H-04
-- [#2](../../issues/2) Property test bằng Echidna trên cùng các bất biến đó
+- ~~[#2](../../issues/2) Property test bằng Echidna trên cùng các bất biến đó~~ — xong; phần đáng giá là cái đối chứng âm
 - [#3](../../issues/3) Lab Anchor để có PoC thật đứng sau checklist Solana
 - [#4](../../issues/4) Writeup Ethernaut và Damn Vulnerable DeFi
 

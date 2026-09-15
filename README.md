@@ -25,6 +25,10 @@ Ran 10 test suites: 23 tests passed, 0 failed
    1 invariant campaign over the remediated contract (4 properties)
 ```
 
+The same four properties also run under [Echidna](test/echidna/), with a
+negative control that points them at the unpatched contract and requires them to
+fail.
+
 ## Findings
 
 `src/MemeTax.sol` is an ERC-20 tax token in the shape meme-coin launches
@@ -76,6 +80,28 @@ rather than whose money was moving.
 I kept a working log of the dead ends in [`docs/notes.md`](docs/notes.md),
 including the two attempts at M-01 that went nowhere.
 
+## Two fuzzers, and a control
+
+The four properties in [`test/invariant/`](test/invariant/) run under Foundry
+and again under Echidna in [`test/echidna/`](test/echidna/). Both pass, and
+neither found anything the other missed — a negative result, recorded as one.
+
+What the second engine did produce is worth more than the agreement. A green
+fuzzing run means either the code holds or the harness never reached it, and the
+output looks identical either way. So the same property file is pointed at
+`src/MemeTax.sol`, which is known to be broken, and is required to go red:
+
+```
+echidna_supplyIsConserved:       passing
+echidna_maxWalletHasFloor:       passing
+echidna_ethObligationsAreBacked: FAILED   <- H-04, in five calls
+echidna_taxNeverExceedsCap:      FAILED   <- H-03, in one
+```
+
+CI fails if either of those two ever starts passing. Nothing in the harness
+mentions `_swapBack()`; the fuzzer reaches H-04 from a deposit followed by an
+ordinary trade.
+
 ## Public review
 
 [`reviews/2026-09_FatTokenV5/`](reviews/2026-09_FatTokenV5/) — an unsolicited
@@ -99,6 +125,7 @@ test/
   H0*/M0*/L0*.t.sol        one file per finding
   Retest_Fixed.t.sol       every exploit replayed against the fix
   invariant/               4 properties over the remediated contract
+  echidna/                 the same 4 under Echidna, plus the negative control
   attackers/, mocks/       attacker contract and a Uniswap V2 router stand-in
 reports/
   2026-09_MemeTax_audit-report.md
@@ -135,7 +162,7 @@ version:
 Tracked as issues, in the order I plan to get to them.
 
 - ~~[#1](../../issues/1) Foundry invariant suite~~ — done, and it produced H-04
-- [#2](../../issues/2) Echidna property tests over the same invariants
+- ~~[#2](../../issues/2) Echidna property tests over the same invariants~~ — done; the control is the part that mattered
 - [#3](../../issues/3) Anchor lab to put real PoCs behind the Solana checklist
 - [#4](../../issues/4) Ethernaut and Damn Vulnerable DeFi writeups
 
