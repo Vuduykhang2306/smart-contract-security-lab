@@ -69,12 +69,34 @@ High thật mất giá.
   `UniswapV2Router02.swapExactTokensForETHSupportingFeeOnTransferTokens` mới
   thấy nó gửi thẳng cho pair.
 
-## Việc chưa làm
+## Invariant suite tìm ra thứ mắt mình bỏ sót
 
-Chưa có invariant test. Hai bất biến rõ ràng nên kiểm:
-`sum(balances) == totalSupply` và `sum(feesOwed) <= address(this).balance`.
-Unit test chỉ chứng minh được kịch bản mình nghĩ ra; fuzzing mới tìm được kịch
-bản mình không nghĩ ra.
+Viết bộ invariant cho bản đã vá, tưởng chỉ là thủ tục xác nhận lại mấy bản vá
+đã đúng. Đến tính chất thứ hai thì vỡ ra chuyện khác.
+
+INV-02 phát biểu: *mọi ETH mà contract đã hứa trả đều phải có số dư đỡ đằng sau*
+(`sum(feesOwed) + sum(pendingDividend) <= address(this).balance`). Phát biểu
+xong thì câu hỏi tiếp theo tự đến: đường nào làm số dư đi mà sổ sách không đi?
+
+`_swapBack()` chi `address(this).balance`. Pool cổ tức nằm đúng trong số dư đó.
+
+Nạp 10 ETH cổ tức cho một người, rồi một người khác bán 1.000 token: ví phí nhận
+6 ETH mỗi bên, tổng 12 ETH, trong đó 10 là tiền cổ tức của người kia. Sổ vẫn ghi
+người đó được 10 ETH. Không cần kẻ tấn công, không cần thứ tự đặc biệt.
+
+Cay nhất là tôi đã đọc đúng hàm `_swapBack` hai lần rồi, một lần cho M-01 một
+lần cho M-02. Cả hai lần câu hỏi trong đầu đều là *"lời gọi này có an toàn
+không"*. Không lần nào hỏi *"đây là tiền của ai"*.
+
+Bài học: đọc hàm thì thấy được lỗi trong hàm. Muốn thấy lỗi giữa các hàm thì
+phải phát biểu bất biến của cả hệ thống rồi đi tìm đường phá nó. Đó mới là thứ
+invariant testing làm được mà unit test không làm được — unit test chỉ chứng minh
+được kịch bản mình đã nghĩ ra.
+
+Bản vá tình cờ đã đóng H-04 từ trước, vì bản `Fixed` tính `received` bằng hiệu số
+dư trước và sau swap. Nhưng đó là may, không phải do tôi nhìn ra vấn đề.
+
+## Việc chưa làm
 
 Phần Solana mới có checklist, chưa có PoC. Viết được lab Anchor cho mấy lỗi
 account validation thì mới gọi là hiểu.

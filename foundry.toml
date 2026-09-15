@@ -7,6 +7,12 @@ optimizer = true
 optimizer_runs = 200
 verbosity = 2
 
+[invariant]
+runs = 256
+depth = 128
+fail_on_revert = false
+shrink_run_limit = 5000
+
 [fmt]
 line_length = 110
 tab_width = 4

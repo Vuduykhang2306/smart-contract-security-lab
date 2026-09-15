@@ -21,9 +21,10 @@ forge test -vv
 ```
 
 ```
-Ran 8 test suites: 20 tests passed, 0 failed
-  11 exploit trên src/MemeTax.sol
+Ran 10 test suites: 23 tests passed, 0 failed
+  13 exploit trên src/MemeTax.sol
    9 retest trên src/fixed/MemeTaxFixed.sol
+   1 bộ invariant trên bản đã vá (4 tính chất)
 ```
 
 ## Các finding
@@ -37,6 +38,7 @@ ví, danh sách đen, và một pool cổ tức bằng ETH.
 | H-01 | High | Reentrancy trong `claimDividend()` rút cạn toàn bộ pool cổ tức | [`test/H01_ReentrancyClaimDividend.t.sol`](test/H01_ReentrancyClaimDividend.t.sol) |
 | H-02 | High | `setBlacklist()` thiếu kiểm soát truy cập — ai cũng đóng băng được ví bất kỳ | [`test/H02_BlacklistAccessControl.t.sol`](test/H02_BlacklistAccessControl.t.sol) |
 | H-03 | High | `setTaxes()` không có trần — có thể biến token thành honeypot sau khi niêm yết | [`test/H03_UnboundedTax.t.sol`](test/H03_UnboundedTax.t.sol) |
+| H-04 | High | `_swapBack()` chi trả trọn số dư ETH, quét luôn pool cổ tức | [`test/H04_SwapBackSweepsDividendPool.t.sol`](test/H04_SwapBackSweepsDividendPool.t.sol) |
 | M-01 | Medium | `_swapBack()` không có khoá tái nhập, đang dựa vào một bất biến không ai ghi lại | [`test/M01_SwapBackNoLock.t.sol`](test/M01_SwapBackNoLock.t.sol) |
 | M-02 | Medium | Trả phí bằng ETH bỏ qua giá trị trả về — phân phối thất bại âm thầm | [`test/M02_UncheckedEthTransfer.t.sol`](test/M02_UncheckedEthTransfer.t.sol) |
 | L-01 | Low | Công thức tính phí chia trước khi nhân | [`test/L01_FeeRounding.t.sol`](test/L01_FeeRounding.t.sol) |
@@ -63,6 +65,15 @@ trả phí chạy bên trong lệnh bán của người dùng, nên một ví nh
 được ETH sẽ chặn lệnh bán của tất cả mọi người. Đổi một khoản thất thoát kế toán
 âm thầm lấy một vụ DoS toàn hệ thống. Bản vá cộng dồn phí và để ví tự rút.
 
+**H-04 là finding tôi thấy xấu hổ nhất và cũng mừng nhất.** Lần rà soát thủ công
+bỏ sót nó hoàn toàn. Nó chỉ lộ ra khi tôi ngồi viết bộ invariant và buộc phải
+phát biểu thành một tính chất: mọi ETH mà contract đã hứa trả đều phải có số dư
+đỡ đằng sau. `_swapBack()` chi trả `address(this).balance`, mà pool cổ tức nằm
+chung số dư đó, nên lệnh bán bình thường đầu tiên sau một lần nạp cổ tức là đem
+tiền người khác trả cho ví phí. Tôi đã đọc đúng hàm đó hai lần rồi, cho M-01 và
+M-02, và cả hai lần đều hỏi "lời gọi này có an toàn không" chứ không hỏi "đây là
+tiền của ai".
+
 Những hướng đi hỏng trong lúc làm, gồm hai lần viết lại M-01, tôi ghi trong
 [`docs/notes.md`](docs/notes.md).
 
@@ -76,6 +87,7 @@ src/
 test/
   H0*/M0*/L0*.t.sol        mỗi finding một file
   Retest_Fixed.t.sol       chạy lại mọi exploit trên bản vá
+  invariant/               4 tính chất kiểm trên bản đã vá
   attackers/, mocks/       contract tấn công và bản mô phỏng router Uniswap V2
 reports/
   2026-09_MemeTax_audit-report.md
@@ -111,8 +123,7 @@ Chi tiết trong [`docs/audit-process.md`](docs/audit-process.md). Tóm tắt:
 
 Theo dõi bằng issue, xếp theo thứ tự định làm.
 
-- [#1](../../issues/1) Bộ invariant test bằng Foundry: `sum(balances) == totalSupply`,
-  `sum(feesOwed) <= address(this).balance`
+- ~~[#1](../../issues/1) Bộ invariant test bằng Foundry~~ — xong, và nó tìm ra H-04
 - [#2](../../issues/2) Property test bằng Echidna trên cùng các bất biến đó
 - [#3](../../issues/3) Lab Anchor để có PoC thật đứng sau checklist Solana
 - [#4](../../issues/4) Writeup Ethernaut và Damn Vulnerable DeFi

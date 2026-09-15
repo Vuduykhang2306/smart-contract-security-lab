@@ -74,13 +74,17 @@ cannot exit, not at the severity they carry for the deployer.
 | [H-01](#h-01) | High | Reentrancy in `claimDividend()` drains the entire dividend pool | Fixed |
 | [H-02](#h-02) | High | `setBlacklist()` has no access control — anyone can freeze any holder | Fixed |
 | [H-03](#h-03) | High | `setTaxes()` has no upper bound — the token can be turned into a honeypot after launch | Fixed |
+| [H-04](#h-04) | High | `_swapBack()` pays out the whole ETH balance, sweeping the dividend pool into the fee wallets | Fixed |
 | [M-01](#m-01) | Medium | `_swapBack()` has no reentrancy lock and relies on an undocumented invariant | Fixed |
 | [M-02](#m-02) | Medium | Fee payouts ignore their return value — distribution fails silently | Fixed |
 | [L-01](#l-01) | Low | Fee arithmetic divides before it multiplies | Fixed |
 | [L-02](#l-02) | Low | `setMaxWallet(0)` freezes every non-exempt transfer | Fixed |
 | [I-01](#i-01) | Info | Privileged setters emit no events | Fixed |
 
-Totals: 3 High, 2 Medium, 2 Low, 1 Informational.
+Totals: 4 High, 2 Medium, 2 Low, 1 Informational.
+
+H-04 was not found in the manual pass. It surfaced later, while writing the
+invariant suite — see the finding and `test/invariant/`.
 
 ---
 
@@ -263,6 +267,85 @@ ability to abuse one.
 
 Fixed. `MAX_TAX = 10` is enforced on both values; `setTaxes(0, 100)` reverts with
 `TaxTooHigh(100, 10)`. Retest: `test_retest_H03_tax_is_capped`.
+
+---
+
+<a id="h-04"></a>
+### H-04 — `_swapBack()` pays out the whole ETH balance
+
+**Severity** High (high impact, high likelihood) — **Status** Fixed
+**Location** `src/MemeTax.sol:170-175`
+
+#### Description
+
+```solidity
+uint256 half = address(this).balance / 2;
+
+marketingWallet.call{value: half}("");
+devWallet.call{value: address(this).balance}("");
+```
+
+The function measures its payout against `address(this).balance`, not against
+what the swap returned. Everything else the contract happens to be holding goes
+out with it — and the contract is also holding the dividend pool, because
+`depositDividend()` is payable and leaves the ETH in the same balance.
+
+So the first sell after any dividend deposit pays the depositors' money to the
+fee wallets. `pendingDividend` is never touched, so the ledger still says the
+holders are owed it.
+
+The correct amount is the delta across the swap.
+
+#### Impact
+
+Every ETH deposited for dividends is transferred to the fee wallets on the next
+sell that crosses the swap threshold. No attacker is involved and no unusual
+ordering is needed: it happens on the first ordinary sell. Holders keep a
+non-zero `pendingDividend` balance backed by nothing, and their claims revert on
+`ETH_TRANSFER_FAILED` — the same silent failure described in H-01.
+
+#### Proof of concept
+
+`test/H04_SwapBackSweepsDividendPool.t.sol`
+
+```
+forge test --match-contract H04 -vv
+```
+
+10 ETH is deposited for a holder. An unrelated holder then sells 1,000 tokens,
+returning 2 ETH of genuine fee proceeds. The fee wallets receive 6 ETH each,
+12 ETH in total, of which 10 was the dividend pool. The contract balance ends at
+zero while the ledger still records 10 ETH owed.
+
+#### How this was found
+
+Not by reading the function again. It came out of stating INV-02 for the
+invariant suite — *every ETH the contract has promised must be backed by its
+balance*. Writing that property forces the question of which paths move the
+balance without moving the ledger, and `_swapBack` is one. The manual pass had
+looked at `_swapBack` twice, for M-01 and M-02, and both times the question was
+"is this call safe", never "whose money is this".
+
+#### Recommendation
+
+Measure the proceeds explicitly and distribute only those:
+
+```solidity
+uint256 before = address(this).balance;
+router.swapExactTokensForETHSupportingFeeOnTransferTokens(...);
+uint256 received = address(this).balance - before;
+```
+
+More generally: a contract holding ETH for several purposes needs those purposes
+separated in its accounting. Any path that pays out a raw balance will
+eventually pay out somebody else's share.
+
+#### Remediation
+
+Already closed by the M-02 fix, which was written for an unrelated reason.
+`MemeTaxFixed._swapBack()` computes `received` as the delta and credits exactly
+that to `feesOwed`. Confirmed by `invariant_ethObligationsAreBacked` in
+`test/invariant/MemeTaxFixed.invariant.t.sol`, which holds across the campaign.
 
 ---
 
@@ -523,9 +606,9 @@ pattern-match on, which is why the checklist pass in section 2 step 2 exists.
 
 - No economic or MEV analysis of the swap path. The router is mocked at a fixed
   rate; slippage, sandwiching of `_swapBack()` and LP behaviour were not modelled.
-- No fuzzing or invariant campaign. The PoCs are deterministic unit tests. The
-  natural next step is a Foundry invariant suite asserting that the sum of
-  balances equals `totalSupply` and that `sum(feesOwed) <= address(this).balance`.
+- A Foundry invariant campaign was added after the first version of this report
+  (`test/invariant/`, four properties over the remediated contract). That is
+  what produced H-04. Echidna has not been run yet.
 - No formal verification.
 - Gas optimisation was not in scope and no gas findings are reported.
 
