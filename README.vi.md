@@ -77,6 +77,19 @@ tiền của ai".
 Những hướng đi hỏng trong lúc làm, gồm hai lần viết lại M-01, tôi ghi trong
 [`docs/notes.md`](docs/notes.md).
 
+## Rà soát công khai
+
+[`reviews/2026-09_FatTokenV5/`](reviews/2026-09_FatTokenV5/) — bài rà soát tự
+phát một template token của launchpad, lấy một token đã chết trên mainnet làm
+mẫu vật. 8 finding (2 High, 2 Medium, 3 Low, 1 Info), 7 PoC chạy trên fork
+mainnet, kèm khảo sát on-chain xem còn bao nhiêu bản deploy của template này
+vẫn còn chủ sở hữu.
+
+Kết quả đáng giá nhất: template này quyết định mọi quyền lực nguy hiểm ngay
+trong constructor và không có hàm nào bật lại được, nên người mua chỉ cần đọc
+năm biến bool là biết mình chịu rủi ro gì, vĩnh viễn. Mục 6 của báo cáo là năm
+lệnh đó.
+
 ## Cấu trúc
 
 ```

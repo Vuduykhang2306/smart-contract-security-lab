@@ -25,8 +25,14 @@ jobs:
       - name: Build
         run: forge build --sizes
 
-      - name: Run exploits and retests
-        run: forge test -vv
+      - name: Run exploits, retests and the invariant campaign
+        run: forge test -vv --no-match-path "test/fork/*"
+
+      - name: Run mainnet-fork review PoCs
+        run: forge test -vv --match-path "test/fork/*"
+        env:
+          ETH_RPC_URL: https://ethereum-rpc.publicnode.com
+        continue-on-error: true
 
       - name: Lint
         run: forge lint || true

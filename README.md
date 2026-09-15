@@ -76,6 +76,18 @@ rather than whose money was moving.
 I kept a working log of the dead ends in [`docs/notes.md`](docs/notes.md),
 including the two attempts at M-01 that went nowhere.
 
+## Public review
+
+[`reviews/2026-09_FatTokenV5/`](reviews/2026-09_FatTokenV5/) — an unsolicited
+review of a launchpad token template, using a dead mainnet token as the
+specimen. 8 findings (2 High, 2 Medium, 3 Low, 1 Info), 7 fork PoCs, and an
+on-chain survey of how many deployments of the template still have a live owner.
+
+The useful result is that this template decides every dangerous power in its
+constructor and offers no way to switch any of them back on, so a buyer can
+read five booleans and know their exposure permanently. Section 6 of the review
+is the five commands.
+
 ## Layout
 
 ```
