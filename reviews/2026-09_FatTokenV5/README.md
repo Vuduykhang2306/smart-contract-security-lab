@@ -328,9 +328,9 @@ The one still owned is `0xC01018662C0dF010Ad284cdE77D054e5943a2CD6` ("PEPE",
 4,632 holders), owner `0x8290619A3FFC07ab573e1cfB7b7D34C5BF9F96C8`. Its
 constructor flags put it in a specific position:
 
-- `enableChangeTax = true` → **T-03 is reachable**. The owner can move the sell
+- `enableChangeTax = true` -> **T-03 is reachable**. The owner can move the sell
   tax to 24.99% at any time.
-- `enableKillBlock = false`, `enableRewardList = false` → T-01 and T-02 are
+- `enableKillBlock = false`, `enableRewardList = false` -> T-01 and T-02 are
   **not** reachable, and cannot become reachable, because neither flag has a
   setter.
 

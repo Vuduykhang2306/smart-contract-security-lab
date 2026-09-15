@@ -8,7 +8,7 @@ thực tế có lỗi cài sẵn, proof of concept chạy được cho từng fi
 
 Đây là bài tự luyện. Contract mục tiêu do tôi viết cho repo này — không rà soát
 mã của bên thứ ba, không phải sản phẩm bàn giao cho khách hàng. Thứ nó thể hiện
-là quy trình: **mô hình hoá mối đe doạ → rà soát thủ công → PoC → báo cáo → vá →
+là quy trình: **mô hình hoá mối đe doạ -> rà soát thủ công -> PoC -> báo cáo -> vá ->
 retest.**
 
 **Đọc trước:** [`reports/2026-09_MemeTax_audit-report.md`](reports/2026-09_MemeTax_audit-report.md)
