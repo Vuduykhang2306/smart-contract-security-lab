@@ -1,0 +1,42 @@
+=== QUYEN SO HUU ===
+  owner()                0x000000000000000000000000000000000000dEaD
+
+=== CO CHE BAT/TAT ===
+  enableOffTrade         false
+  enableKillBlock        false
+  enableRewardList       true
+  enableSwapLimit        false
+  enableWalletLimit      false
+  enableChangeTax        false
+  antiSYNC               false
+  airdropEnable          true
+  enableTransferFee      false
+  currencyIsEth          true
+
+=== THAM SO KINH TE ===
+  _buyFundFee            0
+  _buyLPFee              0
+  _buyBurnFee            0
+  _sellFundFee           0
+  _sellLPFee             0
+  _sellBurnFee           0
+  transferFee            0
+  kb                     0
+  airdropNumbs           3
+  numTokensSellRate      100
+  swapAtAmount           0
+  maxBuyAmount           0
+  maxWalletAmount        0
+  startTradeBlock        0
+  totalSupply            420690000000000000000000000000 [4.206e29]
+
+=== DIA CHI ===
+  fundAddress            0x000000000000000000000000000000000000dEaD
+  _mainPair              0x61D1fe7c9722CB76F8a43FbbBBC1D04837507B54
+  currency               0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
+  generateLpReceiverAddr 0x000000000000000000000000000000000000dEaD
+
+=== KHAC ===
+  name                   "Baby Goatseus Maximus"
+  symbol                 "BabyGOAT"
+  decimals               18
