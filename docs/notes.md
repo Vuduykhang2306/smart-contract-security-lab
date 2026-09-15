@@ -96,6 +96,37 @@ invariant testing làm được mà unit test không làm được — unit test
 Bản vá tình cờ đã đóng H-04 từ trước, vì bản `Fixed` tính `received` bằng hiệu số
 dư trước và sau swap. Nhưng đó là may, không phải do tôi nhìn ra vấn đề.
 
+## Chạy Echidna trên đúng bộ tính chất đó (issue #2)
+
+Ý ban đầu là "hai công cụ khác nhau, cái này sót thì cái kia bắt". Chạy xong thì
+cả hai đều xanh, không cái nào tìm thêm được gì. Kết quả âm, ghi vào đúng như
+vậy, không tô vẽ thành cái gì khác.
+
+Nhưng lúc ngồi nhìn bốn dòng `passing` thì mới thấy vấn đề thật: **làm sao biết
+nó xanh vì code đúng hay xanh vì harness chưa chạm tới?** Output hai trường hợp
+giống hệt nhau. Bộ Foundry còn có `callSummary()` in ra số lần gọi từng hành
+động, Echidna thì không in gì cả.
+
+Nên tôi làm thêm một harness thứ hai, y hệt harness kia, chỉ đổi đúng một dòng:
+deploy `MemeTax` thay vì `MemeTaxFixed`. Cùng tập hành động, cùng khoảng chặn,
+cùng bốn tính chất. Nếu bộ tính chất này có giá trị thì nó **phải** đỏ ở đây.
+
+Nó đỏ đúng hai chỗ: INV-03 (trần thuế) và INV-02 (ETH đã hứa phải có số dư đỡ).
+INV-02 chính là H-04. Echidna đi tới nó trong 5 lời gọi — nạp cổ tức, rồi một
+lệnh mua bán bình thường — mà trong harness không hề có chữ `_swapBack`.
+
+Hai chỗ mất thời gian:
+
+- `crytic-compile` mặc định bỏ qua thư mục `test/` khi build bằng Foundry, nên
+  Echidna báo "contract not found". Phải thêm `cryticArgs: ["--foundry-compile-all"]`.
+- Echidna nạp `balanceContract` bằng cách gửi ETH kèm giao dịch deploy, nên
+  constructor của harness phải `payable`. Không thì deploy revert và thông báo
+  lỗi chỉ nói chung chung là "revert, out-of-gas, ...".
+
+Bài học đáng giữ: **một lần fuzz ra xanh chưa phải là bằng chứng.** Bằng chứng
+là khi mình chứng minh được cùng bộ tính chất đó biết đỏ. Từ giờ viết invariant
+suite nào cũng phải có đối chứng âm đi kèm, và cho CI canh luôn cái đối chứng.
+
 ## Việc chưa làm
 
 Phần Solana mới có checklist, chưa có PoC. Viết được lab Anchor cho mấy lỗi
