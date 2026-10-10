@@ -2,17 +2,17 @@
 
 [![CI](https://github.com/Vuduykhang2306/smart-contract-security-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/Vuduykhang2306/smart-contract-security-lab/actions/workflows/ci.yml)
 
-Một bài audit hợp đồng thông minh hoàn chỉnh từ đầu đến cuối: một tax token
-thực tế có lỗi cài sẵn, proof of concept chạy được cho từng finding, báo cáo
-đầy đủ, bản đã vá, và bộ retest chạy lại mọi exploit trên bản vá.
+Một bài audit smart contract làm trọn từ đầu đến cuối. Repo gồm một tax token
+có lỗi, PoC chạy được cho từng lỗi, báo cáo, bản đã vá, và bộ retest chạy lại
+mọi exploit trên bản vá.
 
-Đây là bài tự luyện. Contract mục tiêu do tôi viết cho repo này — không rà soát
-mã của bên thứ ba, không phải sản phẩm bàn giao cho khách hàng. Thứ nó thể hiện
-là quy trình: **mô hình hoá mối đe doạ -> rà soát thủ công -> PoC -> báo cáo -> vá ->
-retest.**
+Đây là bài tôi tự đặt ra để luyện. Contract mục tiêu do tôi tự viết cho repo
+này, nên không có code của bên thứ ba và cũng không phải sản phẩm giao cho
+khách hàng nào. Thứ tôi muốn luyện là cả quy trình: mô hình hoá mối đe doạ ->
+đọc code thủ công -> PoC -> báo cáo -> vá -> retest.
 
-**Đọc trước:** [`reports/2026-09_MemeTax_audit-report.md`](reports/2026-09_MemeTax_audit-report.md)
-(báo cáo viết bằng tiếng Anh, theo chuẩn trình bày của các hãng audit)
+Nên đọc báo cáo trước: [`reports/2026-09_MemeTax_audit-report.md`](reports/2026-09_MemeTax_audit-report.md)
+(báo cáo viết bằng tiếng Anh, theo format của các công ty audit)
 
 ```bash
 git clone https://github.com/Vuduykhang2306/smart-contract-security-lab
@@ -29,21 +29,21 @@ Ran 10 test suites: 23 tests passed, 0 failed
 
 ## Các finding
 
-`src/MemeTax.sol` là ERC-20 tax token đúng theo dáng các đợt phát hành memecoin
-thực tế: thuế mua/bán được gom và swap qua DEX ngay trong `_transfer`, giới hạn
-ví, danh sách đen, và một pool cổ tức bằng ETH.
+`src/MemeTax.sol` là một ERC-20 tax token giống các đợt launch memecoin ngoài
+thực tế: thuế mua/bán được swap qua DEX ngay trong `_transfer`, có giới hạn ví,
+có blacklist, và một pool cổ tức bằng ETH.
 
 | ID | Mức độ | Nội dung | PoC |
 |---|---|---|---|
-| H-01 | High | Reentrancy trong `claimDividend()` rút cạn toàn bộ pool cổ tức | [`test/H01_ReentrancyClaimDividend.t.sol`](test/H01_ReentrancyClaimDividend.t.sol) |
-| H-02 | High | `setBlacklist()` thiếu kiểm soát truy cập — ai cũng đóng băng được ví bất kỳ | [`test/H02_BlacklistAccessControl.t.sol`](test/H02_BlacklistAccessControl.t.sol) |
-| H-03 | High | `setTaxes()` không có trần — có thể biến token thành honeypot sau khi niêm yết | [`test/H03_UnboundedTax.t.sol`](test/H03_UnboundedTax.t.sol) |
-| H-04 | High | `_swapBack()` chi trả trọn số dư ETH, quét luôn pool cổ tức | [`test/H04_SwapBackSweepsDividendPool.t.sol`](test/H04_SwapBackSweepsDividendPool.t.sol) |
-| M-01 | Medium | `_swapBack()` không có khoá tái nhập, đang dựa vào một bất biến không ai ghi lại | [`test/M01_SwapBackNoLock.t.sol`](test/M01_SwapBackNoLock.t.sol) |
-| M-02 | Medium | Trả phí bằng ETH bỏ qua giá trị trả về — phân phối thất bại âm thầm | [`test/M02_UncheckedEthTransfer.t.sol`](test/M02_UncheckedEthTransfer.t.sol) |
-| L-01 | Low | Công thức tính phí chia trước khi nhân | [`test/L01_FeeRounding.t.sol`](test/L01_FeeRounding.t.sol) |
+| H-01 | High | Reentrancy trong `claimDividend()` rút sạch pool cổ tức | [`test/H01_ReentrancyClaimDividend.t.sol`](test/H01_ReentrancyClaimDividend.t.sol) |
+| H-02 | High | `setBlacklist()` không kiểm tra quyền gọi, ai cũng đóng băng được ví bất kỳ | [`test/H02_BlacklistAccessControl.t.sol`](test/H02_BlacklistAccessControl.t.sol) |
+| H-03 | High | `setTaxes()` không có trần, token có thể thành honeypot sau khi launch | [`test/H03_UnboundedTax.t.sol`](test/H03_UnboundedTax.t.sol) |
+| H-04 | High | `_swapBack()` trả toàn bộ số dư ETH, lấy luôn cả pool cổ tức | [`test/H04_SwapBackSweepsDividendPool.t.sol`](test/H04_SwapBackSweepsDividendPool.t.sol) |
+| M-01 | Medium | `_swapBack()` không có khoá reentrancy, đang dựa vào một bất biến không được ghi ở đâu | [`test/M01_SwapBackNoLock.t.sol`](test/M01_SwapBackNoLock.t.sol) |
+| M-02 | Medium | Trả phí bằng ETH nhưng bỏ qua giá trị trả về, trả hỏng cũng không ai biết | [`test/M02_UncheckedEthTransfer.t.sol`](test/M02_UncheckedEthTransfer.t.sol) |
+| L-01 | Low | Công thức tính phí chia trước rồi mới nhân | [`test/L01_FeeRounding.t.sol`](test/L01_FeeRounding.t.sol) |
 | L-02 | Low | `setMaxWallet(0)` đóng băng mọi giao dịch không được miễn trừ | [`test/L02_MaxWalletZero.t.sol`](test/L02_MaxWalletZero.t.sol) |
-| I-01 | Info | Các hàm setter đặc quyền không phát event | — |
+| I-01 | Info | Các hàm setter đặc quyền không phát event | không có |
 
 Chạy riêng một finding kèm trace:
 
@@ -51,44 +51,42 @@ Chạy riêng một finding kèm trace:
 forge test --match-contract H01 -vvv
 ```
 
-Hai finding tôi cho là đáng đọc nhất là **M-01** và **M-02**.
+Nếu chỉ đọc hai finding thì nên đọc M-01 và M-02.
 
-M-01 hôm nay chưa phải lỗi. Quá trình swap phí tái nhập `_transfer` thông qua
-router, và thứ duy nhất ngăn một lần swap thứ hai là việc contract token tình cờ
-nằm trong mapping miễn phí giao dịch. Contract đúng, nhưng đúng một cách tình cờ
-— chỉ cần một lệnh admin trông rất bình thường là hàng rào biến mất và mọi lệnh
-bán bắt đầu revert. PoC dựng lại cả hai trạng thái.
+M-01 hiện tại chưa phải là lỗi, và đó là chỗ thú vị. Lúc swap phí, router gọi
+ngược lại vào `_transfer`. Thứ duy nhất chặn lần swap thứ hai là việc contract
+token đang nằm trong mapping miễn phí, mà mapping đó sinh ra cho việc khác.
+Tức là contract chạy đúng là do may. Chỉ cần một lệnh admin nhìn rất bình
+thường là lớp chặn đó mất, và từ đó mọi lệnh bán đều revert. PoC dựng lại cả
+trạng thái trước và sau.
 
-M-02 là chuyện chọn đúng cách vá chứ không phải cách đầu tiên nghĩ ra. Phản xạ
-của tôi là thêm `require` cho giá trị trả về rồi revert. Như vậy còn tệ hơn: hàm
-trả phí chạy bên trong lệnh bán của người dùng, nên một ví nhận phí không nhận
-được ETH sẽ chặn lệnh bán của tất cả mọi người. Đổi một khoản thất thoát kế toán
-âm thầm lấy một vụ DoS toàn hệ thống. Bản vá cộng dồn phí và để ví tự rút.
+M-02 là chuyện chọn cách vá. Ý đầu tiên của tôi là kiểm tra giá trị trả về rồi
+revert. Làm vậy còn tệ hơn: phần trả phí chạy bên trong lệnh bán của người
+dùng, nên chỉ cần một ví nhận phí không nhận được ETH là lệnh bán của tất cả
+mọi người bị chặn. Tức là đổi một khoản thất thoát không ai thấy lấy một lỗi
+DoS cho cả token. Bản vá ghi lại số phí còn nợ rồi để từng ví tự rút.
 
-**H-04 là finding tôi thấy xấu hổ nhất và cũng mừng nhất.** Lần rà soát thủ công
-bỏ sót nó hoàn toàn. Nó chỉ lộ ra khi tôi ngồi viết bộ invariant và buộc phải
-phát biểu thành một tính chất: mọi ETH mà contract đã hứa trả đều phải có số dư
-đỡ đằng sau. `_swapBack()` chi trả `address(this).balance`, mà pool cổ tức nằm
-chung số dư đó, nên lệnh bán bình thường đầu tiên sau một lần nạp cổ tức là đem
-tiền người khác trả cho ví phí. Tôi đã đọc đúng hàm đó hai lần rồi, cho M-01 và
-M-02, và cả hai lần đều hỏi "lời gọi này có an toàn không" chứ không hỏi "đây là
-tiền của ai".
+H-04 là finding tôi thấy tiếc nhất. Lúc đọc code thủ công tôi bỏ sót nó hoàn
+toàn. Nó chỉ lộ ra khi tôi viết bộ invariant và phải viết thành tính chất: mọi
+ETH mà contract đã hứa trả đều phải có đủ số dư. `_swapBack()` trả
+`address(this).balance`, mà pool cổ tức nằm chung trong số dư đó, nên lệnh bán
+bình thường đầu tiên sau khi nạp cổ tức sẽ đem tiền của người khác trả cho ví
+phí. Tôi đã đọc hàm đó hai lần, cho M-01 và M-02. Cả hai lần tôi chỉ hỏi "lời
+gọi này có an toàn không", chưa lần nào hỏi "đây là tiền của ai".
 
-Những hướng đi hỏng trong lúc làm, gồm hai lần viết lại M-01, tôi ghi trong
-[`docs/notes.md`](docs/notes.md).
+Những chỗ đi sai trong lúc làm, kể cả hai lần làm M-01 không ra gì, tôi ghi
+trong [`docs/notes.md`](docs/notes.md).
 
-## Hai công cụ fuzz, và một đối chứng âm
+## Hai công cụ fuzz và một đối chứng âm
 
-Bốn tính chất trong [`test/invariant/`](test/invariant/) được chạy lại bằng
-Echidna ở [`test/echidna/`](test/echidna/). Cả hai đều xanh, và không công cụ
-nào tìm thêm được thứ công cụ kia bỏ sót — một kết quả âm, và tôi ghi lại đúng
-như vậy.
+Bốn tính chất trong [`test/invariant/`](test/invariant/) chạy bằng Foundry và
+chạy lại bằng Echidna ở [`test/echidna/`](test/echidna/). Cả hai đều pass,
+không công cụ nào tìm thêm được gì. Kết quả đó tôi để nguyên như vậy.
 
-Thứ đáng giá hơn sự đồng thuận đó là cái đối chứng. Một lần chạy fuzz ra xanh có
-thể có nghĩa là code đúng, cũng có thể có nghĩa là harness chưa bao giờ chạm tới
-chỗ cần chạm, và nhìn output thì hai trường hợp giống hệt nhau. Nên tôi chĩa
-đúng bộ tính chất đó vào `src/MemeTax.sol` — bản đã biết chắc là hỏng — và bắt
-nó phải đỏ:
+Cái có ích lại nằm ở chỗ khác. Fuzz ra xanh có thể là do code đúng, cũng có
+thể là do harness chưa bao giờ đi tới đoạn code gây lỗi, mà nhìn output thì
+hai trường hợp y như nhau. Nên tôi chạy đúng bộ tính chất đó trên
+`src/MemeTax.sol`, bản tôi biết chắc là có lỗi, và bắt nó phải fail:
 
 ```
 echidna_supplyIsConserved:       passing
@@ -97,22 +95,22 @@ echidna_ethObligationsAreBacked: FAILED   <- H-04, trong 5 lời gọi
 echidna_taxNeverExceedsCap:      FAILED   <- H-03, trong 1
 ```
 
-CI sẽ fail nếu một trong hai cái đó bỗng dưng xanh trở lại. Trong harness không
-có chữ `_swapBack()` nào; fuzzer tự đi tới H-04 từ một lần nạp cổ tức rồi một
-lệnh giao dịch bình thường.
+CI sẽ fail nếu một trong hai dòng đó tự dưng pass trở lại. Trong harness không
+hề có chữ `_swapBack()`, fuzzer tự tìm tới H-04 chỉ từ một lần nạp cổ tức và
+một giao dịch bình thường.
 
 ## Rà soát công khai
 
-[`reviews/2026-09_FatTokenV5/`](reviews/2026-09_FatTokenV5/) — bài rà soát tự
-phát một template token của launchpad, lấy một token đã chết trên mainnet làm
-mẫu vật. 8 finding (2 High, 2 Medium, 3 Low, 1 Info), 7 PoC chạy trên fork
-mainnet, kèm khảo sát on-chain xem còn bao nhiêu bản deploy của template này
-vẫn còn chủ sở hữu.
+[`reviews/2026-09_FatTokenV5/`](reviews/2026-09_FatTokenV5/) là bài tôi tự rà
+soát (không ai thuê) một template token của launchpad, dùng một token đã chết
+trên mainnet làm ví dụ. 8 finding (2 High, 2 Medium, 3 Low, 1 Info), 7 PoC chạy
+trên fork mainnet, và một khảo sát on-chain xem còn bao nhiêu bản deploy của
+template này vẫn còn owner.
 
-Kết quả đáng giá nhất: template này quyết định mọi quyền lực nguy hiểm ngay
-trong constructor và không có hàm nào bật lại được, nên người mua chỉ cần đọc
-năm biến bool là biết mình chịu rủi ro gì, vĩnh viễn. Mục 6 của báo cáo là năm
-lệnh đó.
+Kết quả chính: template này quyết định mọi quyền nguy hiểm ngay trong
+constructor, sau đó không có hàm nào bật lại được. Nên người mua chỉ cần đọc
+năm giá trị on-chain là biết mình chịu rủi ro gì, và nó sẽ không đổi về sau.
+Mục 6 của bài review là năm lệnh đó.
 
 ## Cấu trúc
 
@@ -139,42 +137,44 @@ docs/
 
 ## Phương pháp
 
-Chi tiết trong [`docs/audit-process.md`](docs/audit-process.md). Tóm tắt:
+Bản đầy đủ ở [`docs/audit-process.md`](docs/audit-process.md). Ngắn gọn thì:
 
-1. **Mô hình hoá mối đe doạ.** Với token, hai câu hỏi tìm ra phần lớn lỗi:
-   *người giữ token có thể bị chặn bán không?* và *giá trị có thể rời contract
-   theo đường nào mà không ai dự tính không?*
-2. **Rà soát thủ công** theo [`docs/checklist-erc20.md`](docs/checklist-erc20.md),
-   làm việc rẻ trước — kiểm soát truy cập, rồi CEI, rồi số học, rồi biên giá trị.
-3. **Phân tích tĩnh** (`forge lint`) để lấy manh mối. Nó bắt được M-02 và chỉ
-   hướng tới M-01, nhưng không thể bắt H-02 hay H-03 vì cả hai đều là lỗi
-   *thiếu code* — không có gì để so khớp mẫu. Mục 5 của báo cáo ghi rõ cái nào
-   bị loại và vì sao.
-4. **Có PoC rồi mới viết báo cáo.** Finding không có test fail thì không được
-   đưa vào. Khoảng một nửa số nghi ngờ ban đầu của tôi chết ở bước này.
-5. **Xếp mức độ theo `tác động × khả năng xảy ra`**, trong đó rủi ro tập trung
-   hoá được chấm theo thiệt hại của người giữ token không thoát được, không phải
-   theo mức độ đáng tin của đội ngũ.
-6. **Retest**, và soát diff để chắc bản vá không chứa gì ngoài các sửa đổi đã thống nhất.
+1. Mô hình hoá mối đe doạ. Với token, hai câu hỏi tìm ra phần lớn lỗi: người
+   giữ token có bị chặn bán không, và tiền có thể ra khỏi contract theo đường
+   nào ngoài dự tính không?
+2. Đọc code thủ công theo [`docs/checklist-erc20.md`](docs/checklist-erc20.md),
+   làm phần nhanh trước: kiểm soát quyền, rồi CEI, rồi số học, rồi giới hạn
+   giá trị.
+3. Phân tích tĩnh (`forge lint`) để lấy manh mối, không coi output của nó là
+   finding. Nó bắt được M-02 và gợi ý tới M-01, nhưng không bắt được H-02 hay
+   H-03 vì cả hai đều là lỗi thiếu code, không có gì để so mẫu. Mục 5 của báo
+   cáo ghi cái nào bị loại và vì sao.
+4. Có PoC rồi mới viết báo cáo. Finding nào không có test fail thì không đưa
+   vào. Khoảng một nửa số chỗ tôi nghi ban đầu bị loại ở bước này.
+5. Mức độ = tác động × khả năng xảy ra. Rủi ro tập trung quyền được chấm theo
+   thiệt hại của người giữ token không thoát ra được, không chấm theo việc đội
+   ngũ trông có đáng tin hay không.
+6. Retest, và xem diff để chắc bản vá chỉ có những sửa đổi đã thống nhất.
 
 ## Lộ trình
 
-Theo dõi bằng issue, xếp theo thứ tự định làm.
+Theo dõi bằng issue, xếp theo thứ tự tôi định làm.
 
-- ~~[#1](../../issues/1) Bộ invariant test bằng Foundry~~ — xong, và nó tìm ra H-04
-- ~~[#2](../../issues/2) Property test bằng Echidna trên cùng các bất biến đó~~ — xong; phần đáng giá là cái đối chứng âm
-- [#3](../../issues/3) Lab Anchor để có PoC thật đứng sau checklist Solana
+- ~~[#1](../../issues/1) Bộ invariant test bằng Foundry~~ xong, và nó tìm ra H-04
+- ~~[#2](../../issues/2) Property test bằng Echidna trên cùng các bất biến đó~~ xong, xem phần đối chứng âm ở trên
+- [#3](../../issues/3) Lab Anchor để có PoC thật cho checklist Solana
 - [#4](../../issues/4) Writeup Ethernaut và Damn Vulnerable DeFi
 
 ## Giới thiệu
 
-Vũ Duy Khang — sinh viên năm nhất ngành An toàn thông tin, định hướng Blockchain
-tại PTIT, TP. Hồ Chí Minh. Đang tìm vị trí thực tập Smart Contract Auditor.
+Vũ Duy Khang, sinh viên năm nhất ngành An toàn thông tin (định hướng
+Blockchain) tại PTIT TP. Hồ Chí Minh. Đang tìm vị trí thực tập Smart Contract
+Auditor.
 
 - GitHub [@Vuduykhang2306](https://github.com/Vuduykhang2306)
 - Email vuduykhang23062008@gmail.com
 
 ## Giấy phép
 
-MIT. Các contract trong `src/` cố tình chứa lỗ hổng và chỉ dùng để nghiên cứu.
-Không deploy.
+MIT. Các contract trong `src/` cố tình có lỗ hổng, chỉ dùng để học. Đừng
+deploy.

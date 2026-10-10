@@ -1,17 +1,17 @@
-# Security Assessment — MemeTax
+# Security Assessment: MemeTax
 
 **Target** `src/MemeTax.sol`
 **Type** ERC-20 tax token with DEX fee swap, wallet limits, blacklist and an ETH dividend pool
-**Auditor** Vu Duy Khang — [github.com/Vuduykhang2306](https://github.com/Vuduykhang2306)
+**Auditor** Vu Duy Khang ([github.com/Vuduykhang2306](https://github.com/Vuduykhang2306))
 **Review period** September 2026
 **Report version** 1.0
 
-> **This is a self-directed practice engagement.** The target contract was written
-> for this repository to reproduce the bug classes that real meme-coin launches
-> ship. It is not a client deliverable and no third-party code was reviewed. The
-> report follows the structure and severity conventions used by public audit
-> firms so that the workflow — scope, findings, proof of concept, remediation,
-> retest — is the same one a real engagement uses.
+> This is a practice engagement I set myself. I wrote the target contract for
+> this repository to reproduce the kinds of bugs that real meme-coin launches
+> ship with. It is not a client deliverable and no third-party code was
+> reviewed. The report follows the structure and severity conventions of
+> public audit reports, so the workflow (scope, findings, proof of concept,
+> remediation, retest) is the same one a real engagement uses.
 
 ---
 
@@ -20,41 +20,41 @@
 | File | nSLOC | In scope |
 |---|---:|:--:|
 | `src/MemeTax.sol` | 106 | Yes |
-| `src/base/MinimalERC20.sol` | 56 | No — plain ERC-20 base, reviewed for context only |
-| `src/interfaces/IDexRouter.sol` | 11 | No — interface |
+| `src/base/MinimalERC20.sol` | 56 | No (plain ERC-20 base, read for context only) |
+| `src/interfaces/IDexRouter.sol` | 11 | No (interface) |
 
 Out of scope: the DEX router and pair implementations, which are modelled by
-`test/mocks/MockDexRouter.sol`. Their behaviour is assumed to match Uniswap V2 —
-in particular that `swapExactTokensForETHSupportingFeeOnTransferTokens` pulls the
-input tokens directly to the pair with `transferFrom`, which re-enters the token's
-`_transfer`. That assumption is what makes M-01 reachable.
+`test/mocks/MockDexRouter.sol`. Their behaviour is assumed to match Uniswap V2.
+In particular, `swapExactTokensForETHSupportingFeeOnTransferTokens` is assumed
+to pull the input tokens straight to the pair with `transferFrom`, which
+re-enters the token's `_transfer`. M-01 depends on that assumption.
 
-Compiler: `solc 0.8.24`, optimizer on, 200 runs. Arithmetic is checked by default;
-no `unchecked` block in the target performs user-influenced arithmetic.
+Compiler: `solc 0.8.24`, optimizer on, 200 runs. Arithmetic is checked by
+default, and no `unchecked` block in the target does arithmetic that a user can
+influence.
 
 ## 2. Methodology
 
-1. **Threat modelling.** Enumerate the actors (deployer/owner, LP, holder,
-   arbitrary caller, fee wallets, router) and what each one should *not* be able
-   to do. For a tax token the two questions that matter are "can a holder be
-   stopped from selling?" and "can value leave along a path nobody intended?".
+1. **Threat modelling.** List the actors (deployer/owner, LP, holder, arbitrary
+   caller, fee wallets, router) and what each of them should not be able to do.
+   For a tax token the two main questions are "can a holder be stopped from
+   selling?" and "can value leave along a path nobody intended?".
 2. **Manual review**, function by function, against the checklist in
    [`docs/checklist-erc20.md`](../docs/checklist-erc20.md). Every external
    function was checked for access control, every state-changing path for
-   Checks-Effects-Interactions, and every arithmetic expression for operation
-   order.
-3. **Static analysis.** `forge lint` was run over the target; its findings are
-   noted in section 5 and were treated as leads, not conclusions.
+   Checks-Effects-Interactions, and every arithmetic expression for the order
+   of operations.
+3. **Static analysis.** `forge lint` was run over the target. Its results are in
+   section 5 and were used as leads to check by hand.
 4. **Proof of concept.** Each accepted finding was reproduced as a failing
    security property in Foundry before it was written up. A finding without a
    runnable PoC is reported as informational.
-5. **Remediation and retest.** Fixes were implemented in
-   `src/fixed/MemeTaxFixed.sol` and every PoC was replayed against it in
-   `test/Retest_Fixed.t.sol`.
+5. **Remediation and retest.** Fixes were made in `src/fixed/MemeTaxFixed.sol`,
+   and every PoC was run again against it in `test/Retest_Fixed.t.sol`.
 
 ## 3. Severity classification
 
-Severity is `impact x likelihood`, the convention used by Code4rena and Sherlock.
+Severity is `impact x likelihood`:
 
 | | Low likelihood | Medium likelihood | High likelihood |
 |---|---|---|---|
@@ -62,34 +62,34 @@ Severity is `impact x likelihood`, the convention used by Code4rena and Sherlock
 | **Medium impact** | Low | Medium | Medium |
 | **Low impact** | Low | Low | Low |
 
-*Impact* is measured as loss of user funds, loss of protocol funds, or loss of
-availability. *Likelihood* accounts for who must act and what must be true first.
-Centralisation risks are reported at the severity they carry for a holder who
-cannot exit, not at the severity they carry for the deployer.
+Impact is measured as loss of user funds, loss of protocol funds, or loss of
+availability. Likelihood takes into account who has to act and what has to be
+true first. Centralisation risks are rated by what they cost a holder who
+cannot exit, not by what they mean for the deployer.
 
 ## 4. Findings
 
 | ID | Severity | Title | Status |
 |---|---|---|---|
 | [H-01](#h-01) | High | Reentrancy in `claimDividend()` drains the entire dividend pool | Fixed |
-| [H-02](#h-02) | High | `setBlacklist()` has no access control — anyone can freeze any holder | Fixed |
-| [H-03](#h-03) | High | `setTaxes()` has no upper bound — the token can be turned into a honeypot after launch | Fixed |
+| [H-02](#h-02) | High | `setBlacklist()` has no access control, so anyone can freeze any holder | Fixed |
+| [H-03](#h-03) | High | `setTaxes()` has no upper bound, so the token can be turned into a honeypot after launch | Fixed |
 | [H-04](#h-04) | High | `_swapBack()` pays out the whole ETH balance, sweeping the dividend pool into the fee wallets | Fixed |
 | [M-01](#m-01) | Medium | `_swapBack()` has no reentrancy lock and relies on an undocumented invariant | Fixed |
-| [M-02](#m-02) | Medium | Fee payouts ignore their return value — distribution fails silently | Fixed |
+| [M-02](#m-02) | Medium | Fee payouts ignore their return value, so a failed distribution goes unnoticed | Fixed |
 | [L-01](#l-01) | Low | Fee arithmetic divides before it multiplies | Fixed |
 | [L-02](#l-02) | Low | `setMaxWallet(0)` freezes every non-exempt transfer | Fixed |
 | [I-01](#i-01) | Info | Privileged setters emit no events | Fixed |
 
 Totals: 4 High, 2 Medium, 2 Low, 1 Informational.
 
-H-04 was not found in the manual pass. It surfaced later, while writing the
-invariant suite — see the finding and `test/invariant/`.
+H-04 was not found in the manual pass. It came up later, while writing the
+invariant suite. See the finding and `test/invariant/`.
 
 ---
 
 <a id="h-01"></a>
-### H-01 — Reentrancy in `claimDividend()` drains the entire dividend pool
+### H-01: Reentrancy in `claimDividend()` drains the entire dividend pool
 
 **Severity** High (high impact, high likelihood) · **Status** Fixed
 **Location** `src/MemeTax.sol:102-110`
@@ -110,21 +110,21 @@ function claimDividend() external {
 }
 ```
 
-The low-level `call` forwards all remaining gas, so a contract recipient runs
-arbitrary code inside its `receive()` hook. At that moment `pendingDividend`
-still holds the caller's original entitlement, so re-entering `claimDividend()`
-passes the `require` again and sends the same amount a second time. The loop
-continues until the contract's ETH balance is smaller than one payout.
+The low-level `call` forwards all remaining gas, so a contract recipient can
+run any code it wants in its `receive()` hook. At that point `pendingDividend`
+still holds the caller's original entitlement, so calling `claimDividend()`
+again passes the `require` and pays the same amount a second time. This
+repeats until the contract's ETH balance is smaller than one payout.
 
-This is a Checks-Effects-Interactions violation. There is no reentrancy guard on
-the function or anywhere else in the contract.
+This is a Checks-Effects-Interactions violation. There is no reentrancy guard
+on this function or anywhere else in the contract.
 
 #### Impact
 
-Any holder able to deploy a contract steals the whole dividend pool, including
-every other holder's share. Victims keep a non-zero `pendingDividend` balance
-that is no longer backed by ETH, so their claims revert on
-`ETH_TRANSFER_FAILED` — the loss is silent until they try to withdraw.
+Any holder who can deploy a contract can take the whole dividend pool,
+including every other holder's share. The other holders are left with a
+non-zero `pendingDividend` balance that no ETH backs, so their claims revert
+with `ETH_TRANSFER_FAILED`. Nobody sees the loss until they try to withdraw.
 
 #### Proof of concept
 
@@ -141,28 +141,28 @@ Alice's claim reverts.
 
 #### Recommendation
 
-Apply Checks-Effects-Interactions — zero the balance before the external call —
-and add an explicit `nonReentrant` guard so the invariant does not depend on
-statement order surviving future edits.
+Follow Checks-Effects-Interactions by zeroing the balance before the external
+call. Also add an explicit `nonReentrant` guard, so the protection doesn't
+depend on the statement order staying the same in later edits.
 
 #### Remediation
 
-Fixed in `src/fixed/MemeTaxFixed.sol`. The balance is cleared before the call and
-`claimDividend()` carries a `nonReentrant` modifier. Retest:
-`test_retest_H01_reentrancy_no_longer_drains_the_pool` — the attacker receives
-exactly 1 ETH, `reentries() == 0`, and Alice still withdraws 9 ETH.
+Fixed in `src/fixed/MemeTaxFixed.sol`. The balance is cleared before the call
+and `claimDividend()` has a `nonReentrant` modifier. Retest:
+`test_retest_H01_reentrancy_no_longer_drains_the_pool`. The attacker receives
+exactly 1 ETH, `reentries() == 0`, and Alice can still withdraw 9 ETH.
 
 ---
 
 <a id="h-02"></a>
-### H-02 — `setBlacklist()` has no access control
+### H-02: `setBlacklist()` has no access control
 
 **Severity** High (high impact, high likelihood) · **Status** Fixed
 **Location** `src/MemeTax.sol:74-76`
 
 #### Description
 
-Every other privileged setter in the contract carries `onlyOwner`.
+Every other privileged setter in the contract has `onlyOwner`.
 `setBlacklist()` does not:
 
 ```solidity
@@ -171,19 +171,18 @@ function setBlacklist(address account, bool blacklisted) external {
 }
 ```
 
-`_transfer()` reverts when either party is blacklisted, so the mapping is a hard
-freeze on an address's balance.
+`_transfer()` reverts when either party is blacklisted, so being on the list
+freezes an address's whole balance.
 
-The omission is easy to miss in review precisely because the surrounding
-functions are guarded — the eye reads the block as uniformly protected. It is
-the single most common high-severity finding in token contracts.
+This is easy to miss in review because the functions around it are guarded,
+and the whole block reads as if it were protected.
 
 #### Impact
 
-Any address can permanently freeze any holder, including the liquidity pair —
-blacklisting `pair` halts all trading. An attacker can also clear a blacklist
-entry set by the owner, so the control is useless as a defensive tool as well.
-No funds move, but arbitrary holders lose access to theirs.
+Any address can freeze any holder permanently, including the liquidity pair.
+Blacklisting `pair` stops all trading. An attacker can also remove a blacklist
+entry the owner set, so the owner can't use the blacklist as a defence either.
+No funds move, but any holder can lose access to theirs.
 
 #### Proof of concept
 
@@ -193,15 +192,16 @@ No funds move, but arbitrary holders lose access to theirs.
 forge test --match-contract H02 -vv
 ```
 
-`mallory`, an address with no role, blacklists `alice`; Alice's transfers and
-sells then revert with `BLACKLISTED`. A second test shows `mallory` removing an
-owner-set blacklist entry on itself.
+`mallory`, an address with no role, blacklists `alice`. Alice's transfers and
+sells then revert with `BLACKLISTED`. A second test shows `mallory` removing
+the blacklist entry the owner had put on its own address.
 
 #### Recommendation
 
-Add `onlyOwner`. More generally, do not rely on reading a block of setters and
-assuming consistency: enumerate every `external`/`public` state-changing
-function and record its expected caller before checking the modifiers.
+Add `onlyOwner`. More generally, don't assume a block of setters is consistent
+just because it reads that way. List every `external`/`public` function that
+changes state and write down who should be able to call it before checking the
+modifiers.
 
 #### Remediation
 
@@ -211,7 +211,7 @@ Fixed. `setBlacklist()` is `onlyOwner` and emits `BlacklistUpdated`. Retest:
 ---
 
 <a id="h-03"></a>
-### H-03 — `setTaxes()` has no upper bound
+### H-03: `setTaxes()` has no upper bound
 
 **Severity** High (high impact, medium likelihood) · **Status** Fixed
 **Location** `src/MemeTax.sol:68-71`
@@ -225,24 +225,24 @@ function setTaxes(uint256 _buyTax, uint256 _sellTax) external onlyOwner {
 }
 ```
 
-The function is correctly restricted to the owner, but there is no ceiling on
-the value. With `sellTax = 100`, `_transfer()` routes the entire amount to the
-contract as fee and delivers `net == 0` to the pair.
+Only the owner can call the function, which is correct, but there is no
+ceiling on the value. With `sellTax = 100`, `_transfer()` sends the entire
+amount to the contract as fee and delivers `net == 0` to the pair.
 
-The owner key is a single EOA; there is no timelock, no multisig and no
-two-step transfer. The change takes effect in the same block it is sent.
+The owner key is a single EOA. There is no timelock, no multisig and no
+two-step transfer, and a change takes effect in the same block it is sent.
 
 #### Impact
 
-The contract can be converted into a honeypot at any time after launch: buyers
-get in at 5% and then cannot get out. This is the exact shape of the majority of
-rug pulls on tax tokens, and it is indistinguishable from a compromised owner
-key. A holder has no on-chain guarantee that the tax they bought under is the
-tax they will sell under.
+The owner can turn the token into a honeypot at any time after launch: buyers
+get in at 5% and then can't get out. Many tax-token rug pulls work this way,
+and from the outside it looks the same as a compromised owner key. A holder has
+no on-chain guarantee that the tax they bought under is the tax they will sell
+under.
 
-Reported as High rather than as a centralisation note because the affected party
-— a holder who cannot exit — loses their full position, and because nothing
-about the deployed bytecode constrains the outcome.
+This is rated High instead of being a centralisation note because the affected
+party, a holder who can't exit, loses their whole position, and nothing in the
+deployed bytecode limits the outcome.
 
 #### Proof of concept
 
@@ -252,28 +252,28 @@ about the deployed bytecode constrains the outcome.
 forge test --match-contract H03 -vv
 ```
 
-After `setTaxes(0, 100)`, Alice's sell of 1,000 tokens delivers 0 to the pair
-while her balance still decreases.
+After `setTaxes(0, 100)`, Alice sells 1,000 tokens. The pair receives 0 and
+her balance still goes down.
 
 #### Recommendation
 
-Enforce a hard cap in the setter — a `MAX_TAX` constant checked on every write,
-so the ceiling lives in the bytecode rather than in a policy document. Transfer
-ownership to a timelock or multisig and publish the delay. Do not rely on
-`renounceOwnership()` alone: it removes the ability to fix a bug along with the
-ability to abuse one.
+Put a hard cap in the setter: a `MAX_TAX` constant checked on every write, so
+the limit lives in the bytecode and not only in a policy document. Move
+ownership to a timelock or multisig and publish the delay. Don't rely on
+`renounceOwnership()` alone, because it removes the ability to fix a bug along
+with the ability to abuse one.
 
 #### Remediation
 
-Fixed. `MAX_TAX = 10` is enforced on both values; `setTaxes(0, 100)` reverts with
-`TaxTooHigh(100, 10)`. Retest: `test_retest_H03_tax_is_capped`.
+Fixed. `MAX_TAX = 10` is enforced on both values, and `setTaxes(0, 100)`
+reverts with `TaxTooHigh(100, 10)`. Retest: `test_retest_H03_tax_is_capped`.
 
 ---
 
 <a id="h-04"></a>
-### H-04 — `_swapBack()` pays out the whole ETH balance
+### H-04: `_swapBack()` pays out the whole ETH balance
 
-**Severity** High (high impact, high likelihood) — **Status** Fixed
+**Severity** High (high impact, high likelihood) · **Status** Fixed
 **Location** `src/MemeTax.sol:170-175`
 
 #### Description
@@ -285,24 +285,24 @@ marketingWallet.call{value: half}("");
 devWallet.call{value: address(this).balance}("");
 ```
 
-The function measures its payout against `address(this).balance`, not against
-what the swap returned. Everything else the contract happens to be holding goes
-out with it — and the contract is also holding the dividend pool, because
-`depositDividend()` is payable and leaves the ETH in the same balance.
+The payout is measured against `address(this).balance` instead of what the
+swap returned, so anything else the contract holds goes out with it. The
+contract also holds the dividend pool, because `depositDividend()` is payable
+and keeps the ETH in the same balance.
 
 So the first sell after any dividend deposit pays the depositors' money to the
-fee wallets. `pendingDividend` is never touched, so the ledger still says the
-holders are owed it.
+fee wallets. `pendingDividend` is never updated, so the books still say the
+holders are owed that ETH.
 
-The correct amount is the delta across the swap.
+The correct amount to pay out is the change in balance across the swap.
 
 #### Impact
 
-Every ETH deposited for dividends is transferred to the fee wallets on the next
-sell that crosses the swap threshold. No attacker is involved and no unusual
-ordering is needed: it happens on the first ordinary sell. Holders keep a
-non-zero `pendingDividend` balance backed by nothing, and their claims revert on
-`ETH_TRANSFER_FAILED` — the same silent failure described in H-01.
+Every ETH deposited for dividends goes to the fee wallets on the next sell that
+crosses the swap threshold. No attacker and no unusual ordering is needed. It
+happens on the first ordinary sell. Holders keep a non-zero `pendingDividend`
+balance with nothing behind it, and their claims revert with
+`ETH_TRANSFER_FAILED`, the same silent failure as in H-01.
 
 #### Proof of concept
 
@@ -312,23 +312,23 @@ non-zero `pendingDividend` balance backed by nothing, and their claims revert on
 forge test --match-contract H04 -vv
 ```
 
-10 ETH is deposited for a holder. An unrelated holder then sells 1,000 tokens,
-returning 2 ETH of genuine fee proceeds. The fee wallets receive 6 ETH each,
-12 ETH in total, of which 10 was the dividend pool. The contract balance ends at
-zero while the ledger still records 10 ETH owed.
+10 ETH is deposited for one holder. A different holder then sells 1,000
+tokens, and the swap returns 2 ETH of real fee proceeds. Each fee wallet
+receives 6 ETH, 12 ETH in total, of which 10 was the dividend pool. The
+contract balance ends at zero while the books still show 10 ETH owed.
 
 #### How this was found
 
-Not by reading the function again. It came out of stating INV-02 for the
-invariant suite — *every ETH the contract has promised must be backed by its
-balance*. Writing that property forces the question of which paths move the
-balance without moving the ledger, and `_swapBack` is one. The manual pass had
-looked at `_swapBack` twice, for M-01 and M-02, and both times the question was
-"is this call safe", never "whose money is this".
+Not from reading the function again. It came from writing INV-02 for the
+invariant suite: every ETH the contract has promised must be backed by its
+balance. Once that property is written down, the next question is which paths
+move the balance without updating the books, and `_swapBack` is one of them.
+The manual pass had looked at `_swapBack` twice, for M-01 and M-02. Both times
+the question was "is this call safe" and never "whose money is this".
 
 #### Recommendation
 
-Measure the proceeds explicitly and distribute only those:
+Measure the swap proceeds and distribute only those:
 
 ```solidity
 uint256 before = address(this).balance;
@@ -336,21 +336,23 @@ router.swapExactTokensForETHSupportingFeeOnTransferTokens(...);
 uint256 received = address(this).balance - before;
 ```
 
-More generally: a contract holding ETH for several purposes needs those purposes
-separated in its accounting. Any path that pays out a raw balance will
-eventually pay out somebody else's share.
+More generally, a contract that holds ETH for several purposes needs to keep
+them apart in its accounting. Any path that pays out the raw balance will
+sooner or later pay out someone else's share.
 
 #### Remediation
 
-Already closed by the M-02 fix, which was written for an unrelated reason.
-`MemeTaxFixed._swapBack()` computes `received` as the delta and credits exactly
-that to `feesOwed`. Confirmed by `invariant_ethObligationsAreBacked` in
-`test/invariant/MemeTaxFixed.invariant.t.sol`, which holds across the campaign.
+Already fixed by the M-02 change, which was made for a different reason.
+`MemeTaxFixed._swapBack()` computes `received` as the balance difference and
+credits exactly that to `feesOwed`. Confirmed by
+`invariant_ethObligationsAreBacked` in
+`test/invariant/MemeTaxFixed.invariant.t.sol`, which holds for the whole
+campaign.
 
 ---
 
 <a id="m-01"></a>
-### M-01 — `_swapBack()` has no reentrancy lock
+### M-01: `_swapBack()` has no reentrancy lock
 
 **Severity** Medium (high impact, low likelihood) · **Status** Fixed
 **Location** `src/MemeTax.sol:123-125`, `src/MemeTax.sol:156-176`
@@ -365,31 +367,31 @@ if (to == pair && !isExcludedFromFee[from] && balanceOf[address(this)] >= swapTh
 }
 ```
 
-`_swapBack()` calls the router, and the router moves the tokens to the pair with
-`transferFrom(token, pair, amountIn)` — which re-enters `_transfer()` with
-`to == pair`. The only reason that re-entry does not trigger a second
-`_swapBack()` is the `!isExcludedFromFee[from]` term: `from` is the token
-contract, which the constructor marks fee-exempt.
+`_swapBack()` calls the router, and the router moves the tokens to the pair
+with `transferFrom(token, pair, amountIn)`. That call re-enters `_transfer()`
+with `to == pair`. The only reason it doesn't trigger a second `_swapBack()` is
+the `!isExcludedFromFee[from]` term: `from` is the token contract, and the
+constructor marks it as fee-exempt.
 
-So the contract is protected, but by a mapping whose documented purpose is fee
-exemption, not reentrancy. The dependency is not stated anywhere and is not
-enforced. `setExcludedFromFee(address(this), false)` is a perfectly ordinary
-looking admin call, and it is enough to remove the guard.
+So the contract is protected, but by a mapping that exists for fee exemption.
+Nothing documents that it also prevents reentrancy, and nothing enforces it.
+`setExcludedFromFee(address(this), false)` looks like a normal admin call, and
+it is enough to remove the guard.
 
-This is the reason production tax tokens carry an explicit `lockTheSwap`
-modifier. The contract behaves correctly today and would break on a change that
-nothing flags as dangerous.
+This is why production tax tokens have an explicit `lockTheSwap` modifier. The
+contract works today, and it would break after a change that nothing marks as
+dangerous.
 
 #### Impact
 
-Once the token contract is un-excluded, every sell re-enters until the call
-stack is exhausted and reverts. Buys and wallet-to-wallet transfers keep
-working, so the token silently becomes one-way — holders cannot exit while the
-pool can still be bought into. Recovery requires an owner transaction; if the
-owner key is lost or the owner has renounced, the state is permanent.
+Once the token contract is no longer excluded, every sell re-enters until the
+call stack runs out and the sell reverts. Buys and wallet-to-wallet transfers
+still work, so the token quietly becomes one-way: holders can't sell, but
+people can still buy into the pool. Fixing it needs an owner transaction. If
+the owner key is lost or ownership was renounced, the token stays that way.
 
-Likelihood is rated low because it needs a specific owner action, not because
-the consequence is mild.
+Likelihood is rated low because it needs a specific owner action. The
+consequence itself is serious.
 
 #### Proof of concept
 
@@ -399,27 +401,27 @@ the consequence is mild.
 forge test --match-contract M01 -vv
 ```
 
-The first test shows a sell succeeding while the implicit guard holds. The
-second calls `setExcludedFromFee(address(token), false)` and shows the next sell
-reverting, with Alice's balance unchanged.
+The first test shows a sell succeeding while the implicit guard is in place.
+The second calls `setExcludedFromFee(address(token), false)` and shows the next
+sell reverting, with Alice's balance unchanged.
 
 #### Recommendation
 
-Add an explicit `inSwap` flag set by a `lockTheSwap` modifier on `_swapBack()`
-and checked in the trigger condition. Keep the fee exemption as well — it should
-be redundant, not load-bearing.
+Add an explicit `inSwap` flag, set by a `lockTheSwap` modifier on
+`_swapBack()` and checked in the trigger condition. Keep the fee exemption as
+well, but nothing should depend on it.
 
 #### Remediation
 
-Fixed. `MemeTaxFixed` carries `bool private _inSwap`, a `lockTheSwap` modifier,
+Fixed. `MemeTaxFixed` has `bool private _inSwap`, a `lockTheSwap` modifier,
 and a `!_inSwap` term in the trigger. Retest:
-`test_retest_M01_swap_lock_survives_un_excluding_the_token` — the same admin
-action is now harmless.
+`test_retest_M01_swap_lock_survives_un_excluding_the_token`. The same admin
+action no longer breaks sells.
 
 ---
 
 <a id="m-02"></a>
-### M-02 — Fee payouts ignore their return value
+### M-02: Fee payouts ignore their return value
 
 **Severity** Medium (medium impact, medium likelihood) · **Status** Fixed
 **Location** `src/MemeTax.sol:172-175`
@@ -433,23 +435,23 @@ marketingWallet.call{value: half}("");
 devWallet.call{value: address(this).balance}("");
 ```
 
-A low-level `call` reports failure through its boolean return value; it does not
-revert. Both return values are discarded, so a fee wallet that cannot accept ETH
-— a multisig whose fallback exceeds the forwarded gas, a contract wallet
-deployed over the address after launch, or simply a wrong address — causes the
-payout to fail while the surrounding sell succeeds normally.
+A low-level `call` reports failure through its boolean return value and does
+not revert. Both return values are discarded. So if a fee wallet can't accept
+ETH (a multisig whose fallback needs more gas than is forwarded, a contract
+wallet deployed at the address after launch, or just a wrong address), the
+payout fails while the sell around it goes through normally.
 
-`solc` raises `Warning (9302): Return value of low-level calls not used` on both
-lines, and `forge lint` flags them as `unchecked-call`. Neither is an error, so
-the contract ships.
+`solc` raises `Warning (9302): Return value of low-level calls not used` on
+both lines, and `forge lint` flags them as `unchecked-call`. Neither is an
+error, so the contract still compiles and ships.
 
 #### Impact
 
-ETH accumulates in the token contract with no event, no revert, and no
-withdrawal function to recover it. Nothing on-chain distinguishes "fees were
-distributed" from "fees were lost", so the condition can persist across many
-sells before anyone notices. The loss is bounded by accumulated fees, not by
-user balances, which is why this is Medium rather than High.
+ETH builds up in the token contract with no event, no revert, and no
+withdrawal function to get it out. Nothing on-chain shows the difference
+between "fees were paid" and "fees were lost", so this can go on for many sells
+before anyone notices. The loss is limited to accumulated fees and doesn't
+touch user balances, which is why this is Medium and not High.
 
 #### Proof of concept
 
@@ -459,29 +461,30 @@ user balances, which is why this is Medium rather than High.
 forge test --match-contract M02 -vv
 ```
 
-Both fee wallets are contracts without a `receive` function. The sell succeeds,
-the fee tokens reach the pair, both wallets receive 0, and 2 ETH is stranded in
-the token contract.
+Both fee wallets are contracts without a `receive` function. The sell
+succeeds, the fee tokens reach the pair, both wallets receive 0, and 2 ETH is
+stuck in the token contract.
 
 #### Recommendation
 
-Prefer accrual over pushing: credit `feesOwed[wallet]` in `_swapBack()` and let
-each wallet pull with a separate `withdrawFees()`. That removes the failure mode
-entirely rather than converting it into a revert — checking the return value and
-reverting would let a broken fee wallet block every user's sell, trading a
-silent accounting loss for a denial of service.
+Accrue fees instead of pushing them: credit `feesOwed[wallet]` in
+`_swapBack()` and let each wallet pull with a separate `withdrawFees()`. That
+removes the failure mode completely. Checking the return value and reverting
+would only turn it into a different problem: a broken fee wallet would block
+every user's sell, and a silent accounting loss would become a denial of
+service.
 
 #### Remediation
 
 Fixed with the pull pattern. `_swapBack()` credits `feesOwed` and emits
-`FeesAccrued`; `withdrawFees()` is `nonReentrant` and reverts on a failed
-transfer. Retests: `test_retest_M02_fees_are_accrued_not_pushed` and
+`FeesAccrued`. `withdrawFees()` is `nonReentrant` and reverts if the transfer
+fails. Retests: `test_retest_M02_fees_are_accrued_not_pushed` and
 `test_retest_M02_working_wallet_can_withdraw`.
 
 ---
 
 <a id="l-01"></a>
-### L-01 — Fee arithmetic divides before it multiplies
+### L-01: Fee arithmetic divides before it multiplies
 
 **Severity** Low (low impact, high likelihood) · **Status** Fixed
 **Location** `src/MemeTax.sol:141`
@@ -492,20 +495,21 @@ transfer. Retests: `test_retest_M02_fees_are_accrued_not_pushed` and
 uint256 fee = amount / 100 * taxRate;
 ```
 
-Integer division truncates, so dividing first discards the remainder before the
-multiplication can use it. Any `amount` below 100 wei is taxed at exactly zero,
-and every other amount is undercharged by up to `taxRate - 1` wei. For
-`amount = 199` and `taxRate = 5` the correct fee is 9; this expression charges 5.
+Integer division truncates, so dividing first throws away the remainder before
+the multiplication can use it. Any `amount` below 100 wei pays exactly zero
+tax, and every other amount is undercharged by up to `taxRate - 1` wei. For
+`amount = 199` and `taxRate = 5` the correct fee is 9, but this expression
+charges 5.
 
 #### Impact
 
-The shortfall is at most 9 wei per transfer on an 18-decimal token, and
-extracting a meaningful sum by splitting a sell into sub-100-wei transfers costs
-far more gas than the tax avoided. There is no realistic economic attack.
+The shortfall is at most 9 wei per transfer on an 18-decimal token. Splitting
+a sell into transfers under 100 wei to avoid a meaningful amount of tax costs
+far more gas than it saves, so there is no realistic economic attack.
 
-It is reported because the pattern is a correctness defect that becomes severe
-the moment it is copied into a context with different magnitudes — a token with
-fewer decimals, or a share-price calculation — and because it is free to fix.
+It is still reported because the same expression becomes a real problem once
+it's copied somewhere with different magnitudes, like a token with fewer
+decimals or a share-price calculation, and because it costs nothing to fix.
 
 #### Proof of concept
 
@@ -519,36 +523,36 @@ forge test --match-contract L01 -vv
 
 #### Recommendation
 
-Multiply before dividing: `amount * taxRate / 100`. The intermediate product
-cannot overflow for any realistic supply under `solc 0.8`'s checked arithmetic.
+Multiply before dividing: `amount * taxRate / 100`. Under `solc 0.8`'s checked
+arithmetic, the intermediate product can't overflow for any realistic supply.
 
 #### Remediation
 
-Fixed. Retests: `test_retest_L01_small_transfers_are_taxed_correctly` (99 wei now
-pays 4) and `test_retest_L01_ordinary_amounts_are_no_longer_undercharged`
+Fixed. Retests: `test_retest_L01_small_transfers_are_taxed_correctly` (99 wei
+now pays 4) and `test_retest_L01_ordinary_amounts_are_no_longer_undercharged`
 (199 wei pays 9).
 
 ---
 
 <a id="l-02"></a>
-### L-02 — `setMaxWallet(0)` freezes every non-exempt transfer
+### L-02: `setMaxWallet(0)` freezes every non-exempt transfer
 
 **Severity** Low (high impact, low likelihood) · **Status** Fixed
 **Location** `src/MemeTax.sol:83-85`
 
 #### Description
 
-`setMaxWallet()` accepts any value including zero. `_transfer()` enforces
-`balanceOf[to] + net <= maxWallet` for every destination other than the pair, so
-`maxWallet == 0` makes each of those transfers revert.
+`setMaxWallet()` accepts any value, including zero. `_transfer()` enforces
+`balanceOf[to] + net <= maxWallet` for every destination except the pair, so
+with `maxWallet == 0` each of those transfers reverts.
 
 #### Impact
 
-Buys and wallet-to-wallet transfers stop; sells keep working because the pair is
-exempt from the check. The pool can therefore only be drained. Reachable only by
-owner error or a compromised key, and reversible by the owner, so the likelihood
-is low — but the state is indistinguishable from a deliberate trap while it
-lasts.
+Buys and wallet-to-wallet transfers stop. Sells keep working because the pair
+is exempt from the check, so the pool can only be drained. This can only
+happen through an owner mistake or a compromised key, and the owner can undo
+it, so likelihood is low. While it lasts, though, it looks exactly like a
+deliberate trap.
 
 #### Proof of concept
 
@@ -560,27 +564,27 @@ forge test --match-contract L02 -vv
 
 #### Recommendation
 
-Enforce a floor in the setter, expressed as a fraction of supply rather than an
-absolute number so it survives changes to the token's decimals.
+Enforce a floor in the setter. Express it as a fraction of supply instead of
+an absolute number, so it still works if the token's decimals change.
 
 #### Remediation
 
-Fixed. `MIN_MAX_WALLET_BPS = 10` (0.10% of supply) is enforced;
+Fixed. `MIN_MAX_WALLET_BPS = 10` (0.10% of supply) is enforced, and
 `setMaxWallet(0)` reverts with `MaxWalletTooLow`. Retest:
 `test_retest_L02_max_wallet_has_a_floor`.
 
 ---
 
 <a id="i-01"></a>
-### I-01 — Privileged setters emit no events
+### I-01: Privileged setters emit no events
 
 **Severity** Informational · **Status** Fixed
 
 `setTaxes`, `setBlacklist`, `setExcludedFromFee`, `setMaxWallet`,
-`setSwapThreshold` and `setPair` all change state that holders depend on, and
-none of them emits an event. Off-chain monitoring cannot alert on a tax change
-or a blacklist entry without polling storage every block, which is exactly the
-kind of change holders need to see in real time.
+`setSwapThreshold` and `setPair` all change state that holders rely on, and
+none of them emits an event. Off-chain monitoring can't alert on a tax change
+or a new blacklist entry without polling storage every block, and those are
+exactly the changes holders need to see quickly.
 
 Fixed: `MemeTaxFixed` emits a typed event from every privileged setter and from
 both ETH paths.
@@ -590,33 +594,37 @@ both ETH paths.
 ## 5. Static analysis
 
 `forge lint` was run over `src/MemeTax.sol`. Its output is recorded here for
-completeness; each item was verified by hand before being accepted or dismissed.
+completeness; each item was verified by hand before being accepted or
+dismissed.
 
 | Lint | Location | Outcome |
 |---|---|---|
-| `unchecked-call` | `_swapBack()`, both payouts | Confirmed — became M-02 |
-| `arbitrary-send-eth` | `_swapBack()`, both payouts | Dismissed — the destinations are owner-configured, not caller-supplied. Kept as context for M-02. |
+| `unchecked-call` | `_swapBack()`, both payouts | Confirmed, became M-02 |
+| `arbitrary-send-eth` | `_swapBack()`, both payouts | Dismissed: the destinations are set by the owner, not supplied by the caller. Kept as context for M-02. |
 | `reentrancy-events` | `_transfer` / `_swapBack` | Dismissed as written, but the underlying observation led to M-01 |
 
-The two findings the linter did not raise — H-02 (missing modifier) and H-03
-(missing bound) — are both absence-of-code defects. Nothing is present to
+The two findings the linter did not raise, H-02 (missing modifier) and H-03
+(missing bound), are both defects of absence. There is nothing in the code to
 pattern-match on, which is why the checklist pass in section 2 step 2 exists.
 
 ## 6. Notes on what this report does not cover
 
 - No economic or MEV analysis of the swap path. The router is mocked at a fixed
-  rate; slippage, sandwiching of `_swapBack()` and LP behaviour were not modelled.
-- A Foundry invariant campaign was added after the first version of this report
-  (`test/invariant/`, four properties over the remediated contract). That is
-  what produced H-04. Echidna has not been run yet.
+  rate, and slippage, sandwiching of `_swapBack()` and LP behaviour were not
+  modelled.
+- A Foundry invariant campaign was added after the first version of this
+  report (`test/invariant/`, four properties over the remediated contract).
+  That is what produced H-04. The same four properties were later run under
+  Echidna (`test/echidna/`), together with a negative control against the
+  unpatched contract. Echidna found nothing the Foundry campaign had missed.
 - No formal verification.
-- Gas optimisation was not in scope and no gas findings are reported.
+- Gas optimisation was out of scope and no gas findings are reported.
 
 ## 7. Reproducing this report
 
 ```bash
 git clone https://github.com/Vuduykhang2306/smart-contract-security-lab
 cd smart-contract-security-lab
-forge test -vv                      # 20 tests: 11 exploits, 9 retests
+forge test -vv                      # 23 tests: 13 exploits, 9 retests, 1 invariant campaign
 forge test --match-contract H01 -vvv  # one finding, with traces
 ```

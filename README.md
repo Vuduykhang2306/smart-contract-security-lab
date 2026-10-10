@@ -2,15 +2,17 @@
 
 [![CI](https://github.com/Vuduykhang2306/smart-contract-security-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/Vuduykhang2306/smart-contract-security-lab/actions/workflows/ci.yml)
 
-A smart contract audit carried out end to end. There is a tax token with bugs
-in it, a runnable proof of concept for each one, a report, a patched version of
-the contract, and a retest suite that replays every exploit against the patch.
+One smart contract audit, done start to finish. There's a tax token with bugs
+in it, a runnable proof of concept for each bug, a report, a patched version of
+the contract, and a retest suite that runs every exploit again against the
+patch.
 
-This is self-directed practice. I wrote the target myself; no third-party code
-was reviewed and nothing here is a client deliverable. The point is the
-workflow: threat model, manual review, PoC, report, fix, retest.
+This is practice I set myself. I wrote the target contract, so no third-party
+code was reviewed and nothing here was delivered to a client. What I wanted to
+practise is the workflow: threat model, manual review, PoC, report, fix,
+retest.
 
-**Read first:** [`reports/2026-09_MemeTax_audit-report.md`](reports/2026-09_MemeTax_audit-report.md)
+Start with the report: [`reports/2026-09_MemeTax_audit-report.md`](reports/2026-09_MemeTax_audit-report.md)
 
 ```bash
 git clone https://github.com/Vuduykhang2306/smart-contract-security-lab
@@ -25,27 +27,27 @@ Ran 10 test suites: 23 tests passed, 0 failed
    1 invariant campaign over the remediated contract (4 properties)
 ```
 
-The same four properties also run under [Echidna](test/echidna/), with a
-negative control that points them at the unpatched contract and requires them to
-fail.
+The same four properties also run under [Echidna](test/echidna/). There's also
+a negative control that runs them against the unpatched contract, where they
+have to fail.
 
 ## Findings
 
-`src/MemeTax.sol` is an ERC-20 tax token in the shape meme-coin launches
-actually ship: buy/sell tax swapped through a DEX from inside `_transfer`, a
+`src/MemeTax.sol` is an ERC-20 tax token built the way meme-coin launches
+usually are: buy/sell tax swapped through a DEX from inside `_transfer`, a
 max-wallet cap, a blacklist, and an ETH dividend pool.
 
 | ID | Severity | Finding | PoC |
 |---|---|---|---|
 | H-01 | High | Reentrancy in `claimDividend()` drains the entire dividend pool | [`test/H01_ReentrancyClaimDividend.t.sol`](test/H01_ReentrancyClaimDividend.t.sol) |
-| H-02 | High | `setBlacklist()` has no access control — anyone can freeze any holder | [`test/H02_BlacklistAccessControl.t.sol`](test/H02_BlacklistAccessControl.t.sol) |
-| H-03 | High | `setTaxes()` has no upper bound — the token can become a honeypot after launch | [`test/H03_UnboundedTax.t.sol`](test/H03_UnboundedTax.t.sol) |
-| H-04 | High | `_swapBack()` pays out the whole ETH balance, sweeping the dividend pool | [`test/H04_SwapBackSweepsDividendPool.t.sol`](test/H04_SwapBackSweepsDividendPool.t.sol) |
+| H-02 | High | `setBlacklist()` has no access control, so anyone can freeze any holder | [`test/H02_BlacklistAccessControl.t.sol`](test/H02_BlacklistAccessControl.t.sol) |
+| H-03 | High | `setTaxes()` has no upper bound, so the token can become a honeypot after launch | [`test/H03_UnboundedTax.t.sol`](test/H03_UnboundedTax.t.sol) |
+| H-04 | High | `_swapBack()` pays out the whole ETH balance, dividend pool included | [`test/H04_SwapBackSweepsDividendPool.t.sol`](test/H04_SwapBackSweepsDividendPool.t.sol) |
 | M-01 | Medium | `_swapBack()` has no reentrancy lock and relies on an undocumented invariant | [`test/M01_SwapBackNoLock.t.sol`](test/M01_SwapBackNoLock.t.sol) |
-| M-02 | Medium | Fee payouts ignore their return value — distribution fails silently | [`test/M02_UncheckedEthTransfer.t.sol`](test/M02_UncheckedEthTransfer.t.sol) |
+| M-02 | Medium | Fee payouts ignore their return value, so a failed payout goes unnoticed | [`test/M02_UncheckedEthTransfer.t.sol`](test/M02_UncheckedEthTransfer.t.sol) |
 | L-01 | Low | Fee arithmetic divides before it multiplies | [`test/L01_FeeRounding.t.sol`](test/L01_FeeRounding.t.sol) |
 | L-02 | Low | `setMaxWallet(0)` freezes every non-exempt transfer | [`test/L02_MaxWalletZero.t.sol`](test/L02_MaxWalletZero.t.sol) |
-| I-01 | Info | Privileged setters emit no events | — |
+| I-01 | Info | Privileged setters emit no events | none |
 
 Run one finding on its own, with traces:
 
@@ -53,43 +55,44 @@ Run one finding on its own, with traces:
 forge test --match-contract H01 -vvv
 ```
 
-If you only read two, read **M-01** and **M-02**.
+If you only read two findings, read M-01 and M-02.
 
-M-01 is not a bug today, which is what makes it interesting. The fee swap
-re-enters `_transfer` through the router. The only thing stopping a second swap
-is that the token contract happens to sit in the fee-exemption mapping, and that
-mapping exists for an unrelated reason. So the contract is correct by accident.
-One ordinary-looking admin call takes the guard away and every sell starts
-reverting. The PoC shows both states, before and after.
+M-01 isn't a bug today, and that's why I find it interesting. The fee swap
+re-enters `_transfer` through the router. The only thing that stops a second
+swap is that the token contract is in the fee-exemption mapping, and that
+mapping is there for a different reason. So the contract works by accident.
+One normal-looking admin call removes the guard, and after that every sell
+reverts. The PoC shows the state before and after.
 
-M-02 is about choosing the right fix rather than the first one. My instinct was
-to check the ignored return value and revert. That would have been worse: the
-payout runs inside a user's sell, so a fee wallet that cannot accept ETH would
-block everybody's sell. A silent accounting loss traded for a system-wide DoS.
-The patch accrues fees and lets wallets pull them.
+M-02 is about picking the right fix instead of the first one. My first idea was
+to check the return value and revert. That would have been worse. The payout
+runs inside a user's sell, so a fee wallet that can't accept ETH would block
+everyone's sells. I'd have swapped a silent accounting loss for a DoS on the
+whole token. The patch records the fees owed and lets each wallet withdraw
+them.
 
-**H-04 is the one I am least proud of and most glad about.** The manual pass
-missed it. It only turned up when I sat down to write the invariant suite and
-had to state, as a property, that every ETH the contract has promised must be
-backed by its balance. `_swapBack()` pays out `address(this).balance`, and the
-dividend pool sits in that same balance, so the first ordinary sell after a
-deposit hands somebody else's money to the fee wallets. I had read that function
-twice already, for M-01 and M-02, and both times asked whether the call was safe
-rather than whose money was moving.
+H-04 is the one I'm least happy about. My manual pass missed it. It only came
+up when I wrote the invariant suite and had to write down, as a property, that
+every ETH the contract has promised must be covered by its balance.
+`_swapBack()` pays out `address(this).balance`, and the dividend pool is in
+that same balance. So the first ordinary sell after a deposit sends someone
+else's money to the fee wallets. I had already read that function twice, for
+M-01 and M-02. Both times I asked whether the call was safe. I never asked
+whose money it was sending.
 
-I kept a working log of the dead ends in [`docs/notes.md`](docs/notes.md),
-including the two attempts at M-01 that went nowhere.
+My working log, including the dead ends and the two attempts at M-01 that went
+nowhere, is in [`docs/notes.md`](docs/notes.md) (in Vietnamese).
 
 ## Two fuzzers, and a control
 
 The four properties in [`test/invariant/`](test/invariant/) run under Foundry
-and again under Echidna in [`test/echidna/`](test/echidna/). Both pass, and
-neither found anything the other missed — a negative result, recorded as one.
+and again under Echidna in [`test/echidna/`](test/echidna/). Both pass. Neither
+found anything the other missed, and I've left that result as it is.
 
-What the second engine did produce is worth more than the agreement. A green
-fuzzing run means either the code holds or the harness never reached it, and the
-output looks identical either way. So the same property file is pointed at
-`src/MemeTax.sol`, which is known to be broken, and is required to go red:
+The useful part came from the second engine. A passing fuzz run can mean the
+code holds, or it can mean the harness never reached the code that breaks, and
+the output looks the same in both cases. So I point the same property file at
+`src/MemeTax.sol`, which I know is broken, and it has to fail:
 
 ```
 echidna_supplyIsConserved:       passing
@@ -98,21 +101,22 @@ echidna_ethObligationsAreBacked: FAILED   <- H-04, in five calls
 echidna_taxNeverExceedsCap:      FAILED   <- H-03, in one
 ```
 
-CI fails if either of those two ever starts passing. Nothing in the harness
-mentions `_swapBack()`; the fuzzer reaches H-04 from a deposit followed by an
-ordinary trade.
+CI fails if either of those two ever starts passing. The harness never
+mentions `_swapBack()`. The fuzzer gets to H-04 from a dividend deposit
+followed by an ordinary trade.
 
 ## Public review
 
-[`reviews/2026-09_FatTokenV5/`](reviews/2026-09_FatTokenV5/) — an unsolicited
-review of a launchpad token template, using a dead mainnet token as the
-specimen. 8 findings (2 High, 2 Medium, 3 Low, 1 Info), 7 fork PoCs, and an
-on-chain survey of how many deployments of the template still have a live owner.
+[`reviews/2026-09_FatTokenV5/`](reviews/2026-09_FatTokenV5/) is a review nobody
+asked me for, of a launchpad token template, using a dead mainnet token as the
+example. 8 findings (2 High, 2 Medium, 3 Low, 1 Info), 7 PoCs on a mainnet fork,
+and an on-chain check of how many deployments of the template still have a
+live owner.
 
-The useful result is that this template decides every dangerous power in its
-constructor and offers no way to switch any of them back on, so a buyer can
-read five booleans and know their exposure permanently. Section 6 of the review
-is the five commands.
+The main result: the template decides every dangerous power in its
+constructor, and there's no way to switch any of them back on later. So a buyer
+can read five values on-chain and know for good what they're exposed to.
+Section 6 of the review has the five commands.
 
 ## Layout
 
@@ -139,37 +143,38 @@ docs/
 
 ## Method
 
-Documented in full in [`docs/audit-process.md`](docs/audit-process.md). The short
-version:
+The full version is in [`docs/audit-process.md`](docs/audit-process.md). In
+short:
 
-1. **Threat model.** For a token, two questions find most bugs: *can a holder be
-   stopped from selling?* and *can value leave along a path nobody intended?*
-2. **Manual review** against [`docs/checklist-erc20.md`](docs/checklist-erc20.md),
-   cheapest checks first — access control, then CEI, then arithmetic, then bounds.
-3. **Static analysis** (`forge lint`) as a source of leads, not conclusions. It
-   caught M-02 and pointed at M-01. It could not catch H-02 or H-03: both are
-   defects of absence, so there is nothing for a pattern to match on. Section 5
-   of the report lists what I dismissed and why.
-4. **PoC before write-up.** A finding with no failing test does not go in the
-   report. Roughly half of what I suspected died at this step.
-5. **Severity as `impact × likelihood`**, with centralisation risk rated by what
-   it costs a holder who cannot exit, not by how trustworthy the team looks.
-6. **Retest**, plus a diff check that the patch contains the agreed fixes and
+1. Threat model. For a token, two questions find most bugs: can a holder be
+   stopped from selling, and can value leave along a path nobody intended?
+2. Manual review against [`docs/checklist-erc20.md`](docs/checklist-erc20.md),
+   cheapest checks first: access control, then CEI, then arithmetic, then
+   bounds.
+3. Static analysis (`forge lint`) for leads. I don't treat its output as
+   findings. It caught M-02 and pointed at M-01. It couldn't catch H-02 or
+   H-03, because both are missing code and there's nothing for a pattern to
+   match. Section 5 of the report lists what I dismissed and why.
+4. PoC before write-up. A finding without a failing test doesn't go in the
+   report. About half of what I suspected was dropped at this step.
+5. Severity is impact × likelihood. Centralisation risk is rated by what it
+   costs a holder who can't exit, not by how trustworthy the team looks.
+6. Retest, and check the diff to make sure the patch has the agreed fixes and
    nothing else.
 
 ## Roadmap
 
-Tracked as issues, in the order I plan to get to them.
+Tracked as issues, in the order I plan to do them.
 
-- ~~[#1](../../issues/1) Foundry invariant suite~~ — done, and it produced H-04
-- ~~[#2](../../issues/2) Echidna property tests over the same invariants~~ — done; the control is the part that mattered
+- ~~[#1](../../issues/1) Foundry invariant suite~~ done, and it found H-04
+- ~~[#2](../../issues/2) Echidna property tests over the same invariants~~ done, see the negative control above
 - [#3](../../issues/3) Anchor lab to put real PoCs behind the Solana checklist
 - [#4](../../issues/4) Ethernaut and Damn Vulnerable DeFi writeups
 
 ## About
 
-Vu Duy Khang — first-year Information Security student at PTIT (blockchain track),
-Ho Chi Minh City. Looking for a Smart Contract Auditor internship.
+Vu Duy Khang, first-year Information Security student at PTIT (blockchain
+track), Ho Chi Minh City. Looking for a smart contract auditor internship.
 
 - GitHub [@Vuduykhang2306](https://github.com/Vuduykhang2306)
 - Email vuduykhang23062008@gmail.com
@@ -178,5 +183,5 @@ Tiếng Việt: [README.vi.md](README.vi.md)
 
 ## Licence
 
-MIT. The contracts in `src/` are vulnerable on purpose and exist for study.
-Do not deploy them.
+MIT. The contracts in `src/` are vulnerable on purpose and are only here to
+study. Do not deploy them.

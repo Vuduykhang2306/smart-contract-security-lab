@@ -1,79 +1,83 @@
-# Checklist — Solana SPL tokens and Anchor programs
+# Checklist: Solana SPL tokens and Anchor programs
 
-Review checklist for the Solana side. Unlike `checklist-erc20.md` this one is
-not yet backed by proofs of concept in this repository — building an Anchor test
-suite is the next thing on the roadmap in the README. It is published as a
-checklist, and labelled as one, rather than dressed up as work that has been done.
+My review checklist for Solana. Unlike `checklist-erc20.md`, nothing here has a
+proof of concept in this repository yet. Building an Anchor test suite is the
+next item on the roadmap in the README. Until that's done this is only a
+checklist, and I've labelled it that way.
 
-The account model, not the language, is where Solana bugs come from: a program
-receives accounts it did not choose and must prove each one is the account it
-expects.
+On Solana, most bugs come from the account model more than from the language.
+A program receives accounts it didn't choose, and it has to check that each one
+is the account it expects.
 
 ## Mint configuration
 
-- [ ] `mint_authority` is `None`. If it is set, supply can be increased at will.
-- [ ] `freeze_authority` is `None`. If it is set, any holder's token account can
-      be frozen — the Solana equivalent of an EVM blacklist.
+- [ ] `mint_authority` is `None`. If it's set, supply can be increased at will.
+- [ ] `freeze_authority` is `None`. If it's set, any holder's token account can
+      be frozen. This is the Solana version of an EVM blacklist.
 - [ ] `decimals` matches what the front end and the pool assume.
-- [ ] Metadata (Metaplex) update authority is revoked, or the risk of a rename
-      is accepted and documented.
+- [ ] The metadata (Metaplex) update authority is revoked, or the risk of a
+      rename is accepted and written down.
 
 ## Account validation
 
 - [ ] Every account that must have signed is typed `Signer<'info>` or checked
       with `is_signer`.
-- [ ] Every account is checked for the expected **owner program** — a
-      `TokenAccount` must be owned by the SPL Token program, not merely look
-      like one.
+- [ ] Every account is checked for the expected owner program. A
+      `TokenAccount` has to be owned by the SPL Token program; looking like one
+      isn't enough.
 - [ ] Relationships between accounts are enforced (`has_one`, or an explicit
-      `require_keys_eq!`) instead of being assumed from the instruction's shape.
-- [ ] `UncheckedAccount` / `AccountInfo` appears only where a `/// CHECK:`
+      `require_keys_eq!`) instead of being assumed from the instruction's
+      shape.
+- [ ] `UncheckedAccount` / `AccountInfo` only appears where a `/// CHECK:`
       comment explains what validates it.
-- [ ] Token account `.owner` and `.mint` are verified before any transfer.
+- [ ] Token account `.owner` and `.mint` are checked before any transfer.
 
 ## PDAs
 
-- [ ] PDAs are derived with the canonical bump (`ctx.bumps`), never a
-      user-supplied bump.
-- [ ] Seeds cannot collide: variable-length seeds are length-prefixed or fixed.
-- [ ] Any account used as a signing authority is a PDA of this program, and that
-      is checked rather than assumed.
+- [ ] PDAs are derived with the canonical bump (`ctx.bumps`), never a bump the
+      user supplies.
+- [ ] Seeds can't collide: variable-length seeds are length-prefixed or
+      fixed-length.
+- [ ] Any account used as a signing authority is a PDA of this program, and
+      that is checked, not assumed.
 
 ## CPI
 
-- [ ] The target program id of every CPI is verified against a constant. An
-      unvalidated program account lets a caller substitute their own program.
-- [ ] Accounts forwarded into a CPI are re-validated; do not pass caller-supplied
-      accounts straight through.
-- [ ] Re-entrancy through CPI is considered where the program calls out and then
-      reads its own state.
+- [ ] The target program id of every CPI is checked against a constant. If the
+      program account isn't validated, a caller can substitute their own
+      program.
+- [ ] Accounts passed into a CPI are validated again. Don't pass
+      caller-supplied accounts straight through.
+- [ ] Re-entrancy through CPI is considered wherever the program calls out and
+      then reads its own state.
 
 ## Lifecycle
 
-- [ ] `close` returns lamports to a validated destination, and the closed account
-      is zeroed — otherwise it can be revived within the same transaction.
-- [ ] Initialization is guarded against being run twice.
-- [ ] Rent-exemption is ensured for every account the program creates.
+- [ ] `close` sends the lamports to a validated destination, and the closed
+      account is zeroed. Otherwise it can be revived within the same
+      transaction.
+- [ ] Initialization can't run twice.
+- [ ] Every account the program creates is rent-exempt.
 
 ## Arithmetic and state
 
-- [ ] `checked_add` / `checked_mul` / `checked_div` — Rust release builds wrap
-      silently unless `overflow-checks = true` is set in `Cargo.toml`. Verify
+- [ ] `checked_add` / `checked_mul` / `checked_div`: Rust release builds wrap
+      silently unless `overflow-checks = true` is set in `Cargo.toml`. Check
       that setting.
-- [ ] Multiplication before division, as on the EVM.
-- [ ] Account data layout changes are versioned; a redeploy over a different
-      struct layout misreads existing accounts.
+- [ ] Multiply before dividing, same as on the EVM.
+- [ ] Changes to the account data layout are versioned. A redeploy with a
+      different struct layout misreads existing accounts.
 
-## Distribution and liquidity (memecoin-specific)
+## Distribution and liquidity (memecoins)
 
-- [ ] LP tokens are burned or locked, and the lock is verifiable on-chain.
-- [ ] Team and treasury allocations are visible; check the top holders against
+- [ ] LP tokens are burned or locked, and the lock can be verified on-chain.
+- [ ] Team and treasury allocations are visible. Compare the top holders with
       the claimed distribution.
-- [ ] No authority remains that can mint, freeze, or unilaterally withdraw
-      pooled liquidity.
+- [ ] No authority is left that can mint, freeze, or withdraw pooled liquidity
+      on its own.
 
 ## Tooling
 
-`anchor test`, `solana-test-validator` for local runs; `cargo-audit` for
-dependency CVEs; Solscan and RugCheck for reviewing an already-deployed mint's
-authorities and holder distribution.
+`anchor test` and `solana-test-validator` for local runs, `cargo-audit` for
+dependency CVEs, and Solscan and RugCheck to look at the authorities and holder
+distribution of a mint that's already deployed.
