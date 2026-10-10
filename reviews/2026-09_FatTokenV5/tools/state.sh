@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Doc trang thai that cua BabyGOAT tren mainnet.
-export PATH="$PATH:/home/vuduykhang/.foundry/bin"
+# Reads the live BabyGOAT configuration from mainnet.
+export PATH="$PATH:$HOME/.foundry/bin"
 RPC=https://ethereum-rpc.publicnode.com
 T=0x26d86F942D514B470Ba5dF311027a870110F6699
 
-q() { # ten  chuky
+q() { # label, signature
   v=$(timeout 40 cast call "$T" "$2" --rpc-url "$RPC" 2>/dev/null | head -1)
   printf "  %-22s %s\n" "$1" "${v:-<loi>}"
 }

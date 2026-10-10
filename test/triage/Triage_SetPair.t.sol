@@ -6,14 +6,13 @@ import {MemeTax} from "../../src/MemeTax.sol";
 import {MemeTaxFixed} from "../../src/fixed/MemeTaxFixed.sol";
 import {MockDexRouter} from "../mocks/MockDexRouter.sol";
 
-/// @notice Triage of the `missing-zero-check` lint on `setPair()` (report,
+/// @notice Checking the `missing-zero-check` lint on `setPair()` (report,
 ///         section 5). Not a numbered finding yet.
-/// @dev The max-wallet check in `_transfer` skips transfers to `pair`, and
-///      `pair` is whatever the owner last set. It starts as address(0). While
-///      it is unset, or set to zero, a sell into the real pool is checked
-///      against `maxWallet` as if the pool were an ordinary holder. The pool
-///      holds far more than `maxWallet`, so every sell reverts while buys keep
-///      working.
+/// @dev `_transfer` skips the max wallet check when `to == pair`, but `pair`
+///      is just whatever the owner set last, and it starts as address(0).
+///      While it's 0, a sell into the real pool gets checked against
+///      `maxWallet` like a normal holder. The pool holds much more than
+///      `maxWallet`, so every sell reverts, but buys still work.
 contract Triage_SetPair is Test {
     MockDexRouter internal router;
 
@@ -26,7 +25,7 @@ contract Triage_SetPair is Test {
     address internal alice = makeAddr("alice");
     address internal bob = makeAddr("bob");
 
-    /// @dev Half the supply, far above the 20,000e18 max wallet.
+    /// @dev Half the supply, much more than the 20,000e18 max wallet.
     uint256 internal constant LIQUIDITY = 500_000e18;
 
     function setUp() public {
@@ -43,17 +42,17 @@ contract Triage_SetPair is Test {
         MemeTax token = _deployOriginal();
         assertEq(token.pair(), address(0), "pair starts unset");
 
-        // A buy from the pool goes through, and nothing is taxed.
+        // Buying from the pool works, and there's no tax.
         vm.prank(pool);
         token.transfer(alice, 10_000e18);
         assertEq(token.balanceOf(alice), 10_000e18, "buy is untaxed");
 
-        // The sell is checked against maxWallet as if the pool were a holder.
+        // The sell gets checked against maxWallet like the pool is a holder.
         vm.prank(alice);
         vm.expectRevert("MAX_WALLET");
         token.transfer(pool, 1_000e18);
 
-        // Once the owner sets the pair, the same sell goes through.
+        // After the owner sets the pair, the same sell works.
         vm.prank(deployer);
         token.setPair(pool);
         vm.prank(alice);
@@ -72,7 +71,7 @@ contract Triage_SetPair is Test {
         vm.prank(alice);
         token.transfer(pool, 1_000e18);
 
-        // There is no zero check, so the owner can clear the pair.
+        // No zero check, so the owner can set the pair back to 0.
         vm.prank(deployer);
         token.setPair(address(0));
 
@@ -80,7 +79,7 @@ contract Triage_SetPair is Test {
         vm.expectRevert("MAX_WALLET");
         token.transfer(pool, 1_000e18);
 
-        // Buys still go through, untaxed.
+        // Buys still work, with no tax.
         vm.prank(pool);
         token.transfer(bob, 1_000e18);
         assertEq(token.balanceOf(bob), 1_000e18, "buy still works");
@@ -108,7 +107,7 @@ contract Triage_SetPair is Test {
         vm.expectRevert(MemeTaxFixed.MaxWalletExceeded.selector);
         token.transfer(pool, 1_000e18);
 
-        // Same recovery as the original: setting the pair unblocks the sell.
+        // Same as the original: once the pair is set, selling works again.
         vm.prank(deployer);
         token.setPair(pool);
         vm.prank(alice);
@@ -121,7 +120,8 @@ contract Triage_SetPair is Test {
     //////////////////////////////////////////////////////////////*/
 
     /// @dev Deploys without calling `setPair`, then adds liquidity from the
-    ///      fee-exempt deployer, which skips the max-wallet check.
+    ///      deployer. The deployer is fee-exempt, so the max wallet check
+    ///      doesn't apply to it.
     function _deployOriginal() internal returns (MemeTax token) {
         vm.startPrank(deployer);
         token = new MemeTax(address(router), marketing, dev);

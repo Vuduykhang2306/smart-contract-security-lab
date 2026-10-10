@@ -5,15 +5,15 @@ import {MinimalERC20} from "./base/MinimalERC20.sol";
 import {IDexRouter} from "./interfaces/IDexRouter.sol";
 
 /// @title MemeTax
-/// @notice AUDIT TARGET. A tax token in the shape that meme-coin launches
-///         actually ship: buy/sell tax routed through a DEX, a max-wallet cap,
-///         a blacklist, an ETH dividend pool, and a fee swap triggered from
-///         inside `_transfer`.
+/// @notice Audit target. I wrote it to look like the tax tokens that
+///         meme-coin launches use: buy/sell tax swapped on a DEX, a max
+///         wallet, a blacklist, an ETH dividend pool, and a fee swap that
+///         runs inside `_transfer`.
 ///
-/// @dev THIS CONTRACT IS DELIBERATELY VULNERABLE. Do not deploy it.
-///      Findings are documented in `reports/2026-09_MemeTax_audit-report.md`
-///      and each one has a runnable proof of concept in `test/`.
-///      The remediated version is `src/fixed/MemeTaxFixed.sol`.
+/// @dev This contract has bugs on purpose. Do not deploy it.
+///      The findings are in `reports/2026-09_MemeTax_audit-report.md`, and
+///      every one except I-01 has a PoC in `test/`.
+///      The patched version is `src/fixed/MemeTaxFixed.sol`.
 contract MemeTax is MinimalERC20 {
     address public owner;
     address public marketingWallet;
@@ -63,14 +63,14 @@ contract MemeTax is MinimalERC20 {
         pair = _pair;
     }
 
-    /// @dev [H-03] No upper bound. The owner can raise the sell tax to 100%
-    ///      at any point after launch, which turns the token into a honeypot.
+    /// @dev [H-03] No upper bound, so the owner can set the sell tax to 100%
+    ///      any time after launch and turn the token into a honeypot.
     function setTaxes(uint256 _buyTax, uint256 _sellTax) external onlyOwner {
         buyTax = _buyTax;
         sellTax = _sellTax;
     }
 
-    /// @dev [H-02] Missing `onlyOwner`. Any address can freeze any holder.
+    /// @dev [H-02] No `onlyOwner` here, so anyone can freeze any holder.
     function setBlacklist(address account, bool blacklisted) external {
         isBlacklisted[account] = blacklisted;
     }
@@ -79,7 +79,7 @@ contract MemeTax is MinimalERC20 {
         isExcludedFromFee[account] = excluded;
     }
 
-    /// @dev [L-02] Accepts zero, which freezes every non-excluded transfer.
+    /// @dev [L-02] Zero is accepted, and zero freezes every non-excluded transfer.
     function setMaxWallet(uint256 _maxWallet) external onlyOwner {
         maxWallet = _maxWallet;
     }
@@ -96,9 +96,9 @@ contract MemeTax is MinimalERC20 {
         pendingDividend[account] += msg.value;
     }
 
-    /// @dev [H-01] Checks-Effects-Interactions violation: the ETH is sent
-    ///      before the balance is zeroed, so a contract recipient can re-enter
-    ///      and claim its share repeatedly until the pool is empty.
+    /// @dev [H-01] Breaks Checks-Effects-Interactions: ETH is sent before the
+    ///      balance is set to 0, so a contract can re-enter and claim again
+    ///      and again until the pool is empty.
     function claimDividend() external {
         uint256 amount = pendingDividend[msg.sender];
         require(amount > 0, "NOTHING_TO_CLAIM");
@@ -116,10 +116,10 @@ contract MemeTax is MinimalERC20 {
     function _transfer(address from, address to, uint256 amount) internal override {
         require(!isBlacklisted[from] && !isBlacklisted[to], "BLACKLISTED");
 
-        // [M-01] There is no `inSwap` lock here. Re-entry is prevented only as a
-        // side effect of `isExcludedFromFee[address(this)]` being true, because
-        // the router pulls the tokens out of this contract on the way to the pair.
-        // That is an implicit invariant nothing enforces.
+        // [M-01] No `inSwap` lock. The only thing stopping a second swap is that
+        // `isExcludedFromFee[address(this)]` is true, because the router pulls
+        // the tokens from this contract on the way to the pair. Nothing in the
+        // code enforces that.
         if (to == pair && !isExcludedFromFee[from] && balanceOf[address(this)] >= swapThreshold) {
             _swapBack();
         }
@@ -136,8 +136,8 @@ contract MemeTax is MinimalERC20 {
             taxRate = sellTax;
         }
 
-        // [L-01] Division before multiplication: any amount below 100 wei is
-        // taxed at zero.
+        // [L-01] Divides before multiplying, so any amount under 100 wei pays
+        // no tax.
         uint256 fee = amount / 100 * taxRate;
 
         if (fee > 0) {
@@ -169,8 +169,8 @@ contract MemeTax is MinimalERC20 {
 
         uint256 half = address(this).balance / 2;
 
-        // [M-02] Both return values are discarded. If either wallet cannot
-        // accept ETH the distribution fails silently and the transfer succeeds.
+        // [M-02] Both return values are ignored. If a wallet can't accept ETH,
+        // the payout fails quietly and the transfer still goes through.
         marketingWallet.call{value: half}("");
         devWallet.call{value: address(this).balance}("");
     }

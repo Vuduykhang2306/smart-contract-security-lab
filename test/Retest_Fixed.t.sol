@@ -7,8 +7,8 @@ import {MockDexRouter} from "./mocks/MockDexRouter.sol";
 import {RejectingWallet} from "./mocks/RejectingWallet.sol";
 import {ReentrantClaimer} from "./attackers/ReentrantClaimer.sol";
 
-/// @notice Retest suite. Every proof of concept from the report is replayed
-///         against `MemeTaxFixed` and asserted to fail.
+/// @notice Retest suite. Runs every PoC from the report against
+///         `MemeTaxFixed` and checks that the attack no longer works.
 contract Retest_Fixed is Test {
     MemeTaxFixed internal token;
     MockDexRouter internal router;
@@ -93,7 +93,7 @@ contract Retest_Fixed is Test {
         vm.expectRevert(abi.encodeWithSelector(MemeTaxFixed.TaxTooHigh.selector, 100, 10));
         token.setTaxes(0, 100);
 
-        // The legitimate range still works.
+        // Normal values still work.
         vm.prank(token.owner());
         token.setTaxes(3, 10);
         assertEq(token.sellTax(), 10, "10% is still allowed");
@@ -110,7 +110,7 @@ contract Retest_Fixed is Test {
         vm.prank(token.owner());
         token.setExcludedFromFee(address(token), false);
 
-        // The same admin action that bricked the vulnerable contract is harmless.
+        // The admin call that broke the original contract is harmless here.
         _sell(alice, 1_000e18);
 
         assertEq(token.balanceOf(alice), 49_000e18, "the sell went through");
@@ -131,7 +131,7 @@ contract Retest_Fixed is Test {
 
         _sell(alice, 1_000e18);
 
-        // Nothing is silently lost: the full 2 ETH of proceeds is attributed.
+        // Nothing gets lost: all 2 ETH from the swap is recorded as owed.
         assertEq(token.feesOwed(address(marketingSafe)), 1 ether, "marketing share recorded");
         assertEq(token.feesOwed(address(devSafe)), 1 ether, "dev share recorded");
         assertEq(address(token).balance, 2 ether, "backed one-for-one by the balance");
@@ -160,7 +160,7 @@ contract Retest_Fixed is Test {
     function test_retest_L01_small_transfers_are_taxed_correctly() public {
         _fund(alice, 10_000e18);
 
-        // 5% of 99 is 4.95, which truncates to 4 - not to zero.
+        // 5% of 99 is 4.95, which rounds down to 4 instead of 0.
         _sell(alice, 99);
         assertEq(token.balanceOf(address(token)), 4, "99 wei now pays a fee");
         assertEq(token.balanceOf(pair), 95, "95 wei reached the pair");

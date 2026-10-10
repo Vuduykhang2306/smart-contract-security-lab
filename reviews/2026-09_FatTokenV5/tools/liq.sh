@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Đọc thanh khoản thật của từng token trên Uniswap V2 (và V3 fee 1%), qua RPC công khai.
-export PATH="$PATH:/home/vuduykhang/.foundry/bin"
+# Reads the real Uniswap V2 WETH liquidity of each token through a public RPC.
+# Input: lines of "SYMBOL 0xaddress" on stdin.
+export PATH="$PATH:$HOME/.foundry/bin"
 RPC=https://ethereum-rpc.publicnode.com
 V2F=0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f
-V3F=0x1F98431c8aD98523631AE4a59f267346ea31F984
 WETH=0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
 ZERO=0x0000000000000000000000000000000000000000
 

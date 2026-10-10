@@ -7,12 +7,12 @@ interface IERC20Like {
     function transferFrom(address from, address to, uint256 value) external returns (bool);
 }
 
-/// @notice Minimal stand-in for the Uniswap V2 router.
-/// @dev Reproduces the one behaviour that matters for these proofs of concept:
-///      `swapExactTokensForETHSupportingFeeOnTransferTokens` pulls the input
-///      tokens straight to the PAIR with `transferFrom`, which re-enters the
-///      token's `_transfer`. The router pays ETH out of its own pre-funded
-///      balance at a fixed rate instead of running a real constant-product curve.
+/// @notice Simple stand-in for the Uniswap V2 router.
+/// @dev It copies the one behaviour these PoCs need:
+///      `swapExactTokensForETHSupportingFeeOnTransferTokens` moves the input
+///      tokens straight to the pair with `transferFrom`, which re-enters the
+///      token's `_transfer`. ETH is paid from the router's own balance at a
+///      fixed rate, with no real x*y=k curve.
 contract MockDexRouter is IDexRouter {
     address public weth;
     address public pair;

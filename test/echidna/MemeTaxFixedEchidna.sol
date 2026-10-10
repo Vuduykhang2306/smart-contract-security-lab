@@ -5,22 +5,22 @@ import {MemeTaxFixed} from "../../src/fixed/MemeTaxFixed.sol";
 import {MockDexRouter} from "../mocks/MockDexRouter.sol";
 import {Puppet} from "./Puppet.sol";
 
-/// @notice The Foundry invariants of `test/invariant/` re-stated for Echidna.
+/// @notice The Foundry invariants from `test/invariant/`, rewritten for Echidna.
 ///
-/// @dev Same four properties, same action set, different engine. Foundry's
-///      fuzzer builds a call sequence from a handler; Echidna builds one from
-///      this contract's own external functions and keeps a corpus of the
-///      sequences that reached new code, so the two explore the state space in
-///      different orders. Running both is the point of the exercise: agreement
-///      raises confidence, disagreement is itself a result worth writing down.
+/// @dev Same four properties and same actions, different fuzzer. Foundry builds
+///      call sequences from a handler. Echidna builds them from this contract's
+///      external functions and keeps a corpus of sequences that reached new
+///      code, so the two explore the state in a different order. That's why I
+///      run both: if they agree I trust the result more, and if they disagree,
+///      that's a result too.
 ///
-///      Two things differ from the Foundry harness out of necessity, not choice:
+///      Two things have to be different from the Foundry harness:
 ///
-///      1. No cheatcodes. This contract deploys the token, so it *is* the owner
-///         and it holds the supply. Every other participant is a `Puppet`.
+///      1. No cheatcodes. This contract deploys the token, so it is the owner
+///         and holds the supply. Every other participant is a `Puppet`.
 ///      2. No `vm.deal`. ETH comes from this contract's starting balance, set
-///         by `balanceContract` in `echidna.yaml`, and `fundRouter()` is an
-///         ordinary fuzzed action rather than setup.
+///         by `balanceContract` in `echidna.yaml`, and `fundRouter()` is a
+///         normal fuzzed action instead of setup.
 ///
 ///      Run: echidna . --contract MemeTaxFixedEchidna --config echidna.yaml
 contract MemeTaxFixedEchidna {
@@ -36,15 +36,15 @@ contract MemeTaxFixedEchidna {
     Puppet public immutable devWallet;
     Puppet[ACTOR_COUNT] public actors;
 
-    // Action counters. Echidna prints nothing at the end of a run, so coverage
-    // is read off `corpusDir/covered.*.txt` instead; these are here so a reader
-    // can also check the mix from a debugger or a follow-up call.
+    // Action counters. Echidna doesn't print a summary at the end of a run, so
+    // coverage is read from `corpusDir/covered.*.txt` instead. The counters are
+    // still here so the mix can be checked from a debugger or a later call.
     mapping(bytes32 => uint256) public calls;
 
     address internal immutable weth;
 
     /// @dev Payable because Echidna funds the harness by sending `balanceContract`
-    ///      with the deployment transaction; a non-payable constructor rejects it.
+    ///      with the deploy transaction, and a non-payable constructor rejects it.
     constructor() payable {
         weth = address(new Puppet());
 
@@ -70,10 +70,10 @@ contract MemeTaxFixedEchidna {
                               HELPERS
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Stand-in for `StdUtils.bound`, which lives in forge-std and is not
-    ///      available here. Modulo skews the distribution towards the low end
-    ///      of a wide range; every call site below uses a range narrow enough
-    ///      that it does not matter.
+    /// @dev Replacement for `StdUtils.bound`, which is in forge-std and not
+    ///      available here. Modulo leans toward the low end of a wide range,
+    ///      but every call below uses a range narrow enough that it doesn't
+    ///      matter.
     function _bound(uint256 x, uint256 lo, uint256 hi) internal pure returns (uint256) {
         if (hi <= lo) return lo;
         return lo + (x % (hi - lo + 1));
@@ -114,9 +114,9 @@ contract MemeTaxFixedEchidna {
         uint256 held = token.balanceOf(address(from));
         if (held == 0) return;
 
-        // A sell that trips the fee swap needs the router to be able to pay for
-        // it, or the whole transfer reverts inside the mock and the sequence
-        // teaches the fuzzer nothing. Router solvency is not what is under test.
+        // A sell that triggers the fee swap needs the router to have enough
+        // ETH, otherwise the whole transfer reverts inside the mock and the
+        // fuzzer learns nothing. Router solvency isn't what we're testing.
         uint256 sitting = token.balanceOf(address(token));
         if (sitting >= token.swapThreshold()) {
             uint256 need = sitting * router.ethPerToken() / 1e18;
@@ -145,8 +145,9 @@ contract MemeTaxFixedEchidna {
                              ETH PATHS
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Setup in the Foundry harness, an action here. The router pays for
-    ///      fee swaps out of its own balance, so somebody has to fill it.
+    /// @dev This is part of setup in the Foundry harness but an action here.
+    ///      The router pays for fee swaps from its own balance, so something
+    ///      has to fund it.
     function fundRouter(uint256 amount) external {
         _count("fundRouter");
         uint256 available = address(this).balance;
@@ -186,8 +187,8 @@ contract MemeTaxFixedEchidna {
                         PRIVILEGED SETTERS
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Range runs past MAX_TAX on purpose. The cap has to hold against a
-    ///      fuzzer that keeps trying to breach it, not just against one unit test.
+    /// @dev The range goes past MAX_TAX on purpose, so the fuzzer keeps trying
+    ///      values above the cap.
     function setTaxes(uint256 buyTax, uint256 sellTax) external {
         _count("setTaxes");
         uint256 cap = token.MAX_TAX();
@@ -216,27 +217,27 @@ contract MemeTaxFixedEchidna {
                              PROPERTIES
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice INV-01 - no mint or burn path exists after construction, so the
-    ///         balances of every address that can hold the token must add up to
-    ///         `totalSupply` no matter what sequence ran.
+    /// @notice INV-01 - there is no mint or burn after the constructor, so the
+    ///         balances of all addresses that can hold the token must add up
+    ///         to `totalSupply`.
     function echidna_supplyIsConserved() public view returns (bool) {
         return _sumBalances() == token.totalSupply();
     }
 
-    /// @notice INV-02 - fee credits and dividend credits are both paid from
-    ///         `address(token).balance`. Their sum must never exceed it, or the
-    ///         contract has promised ETH it does not hold.
+    /// @notice INV-02 - owed fees and owed dividends are both paid from
+    ///         `address(token).balance`, so together they can never be more
+    ///         than that balance.
     function echidna_ethObligationsAreBacked() public view returns (bool) {
         return _sumEthObligations() <= address(token).balance;
     }
 
-    /// @notice INV-03 - the cap that closes H-03.
+    /// @notice INV-03 - the tax cap from the H-03 fix.
     function echidna_taxNeverExceedsCap() public view returns (bool) {
         uint256 cap = token.MAX_TAX();
         return token.buyTax() <= cap && token.sellTax() <= cap;
     }
 
-    /// @notice INV-04 - the floor that closes L-02.
+    /// @notice INV-04 - the max wallet floor from the L-02 fix.
     function echidna_maxWalletHasFloor() public view returns (bool) {
         uint256 floor = token.totalSupply() * token.MIN_MAX_WALLET_BPS() / 10_000;
         return token.maxWallet() >= floor;

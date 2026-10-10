@@ -2,11 +2,11 @@
 pragma solidity 0.8.24;
 
 /// @title MinimalERC20
-/// @notice Compact ERC-20 base used so the audit target is self-contained and
-///         reviewable in isolation.
-/// @dev OUT OF SCOPE for the audit in `reports/`. It is deliberately boring:
-///      no hooks, no permit, no upgradeability. Every finding in the report
-///      lives in the derived contract, not here.
+/// @notice Small ERC-20 base, so the audit target doesn't depend on any
+///         library and can be reviewed on its own.
+/// @dev Out of scope for the audit in `reports/`. It's kept simple on
+///      purpose: no hooks, no permit, no upgradeability. All findings in the
+///      report are in the token contract that inherits from this one.
 abstract contract MinimalERC20 {
     string public name;
     string public symbol;
@@ -46,7 +46,7 @@ abstract contract MinimalERC20 {
         return true;
     }
 
-    /// @dev Overridden by the token to insert tax / limit / swap logic.
+    /// @dev The token overrides this to add the tax, the limits and the fee swap.
     function _transfer(address from, address to, uint256 value) internal virtual {
         _rawTransfer(from, to, value);
     }

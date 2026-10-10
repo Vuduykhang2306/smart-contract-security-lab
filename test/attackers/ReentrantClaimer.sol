@@ -6,9 +6,9 @@ interface IDividendPool {
     function pendingDividend(address account) external view returns (uint256);
 }
 
-/// @notice Proof-of-concept attacker for H-01.
-/// @dev Deliberately written against a minimal interface so the same attacker
-///      can be pointed at both the vulnerable token and the remediated one.
+/// @notice Attacker contract for the H-01 PoC.
+/// @dev Uses a small interface so the same attacker works against both the
+///      original token and the patched one.
 contract ReentrantClaimer {
     IDividendPool public immutable pool;
     uint256 public reentries;

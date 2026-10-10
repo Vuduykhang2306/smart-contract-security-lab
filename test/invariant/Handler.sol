@@ -10,14 +10,13 @@ import {MemeTaxFixed} from "../../src/fixed/MemeTaxFixed.sol";
 import {MockDexRouter} from "../mocks/MockDexRouter.sol";
 
 /// @notice Handler for the invariant campaign against `MemeTaxFixed`.
-/// @dev Deliberately does NOT inherit `Test`: the fuzzer targets every public
-///      function on this contract, and inheriting the full test harness would
-///      hand it hundreds of cheatcode wrappers to call instead of the token.
+/// @dev This doesn't inherit `Test` on purpose. The fuzzer calls every public
+///      function on this contract, and with `Test` it would spend most of its
+///      calls on cheatcode helpers instead of the token.
 ///
-///      Every action bounds its inputs so calls mostly land instead of
-///      reverting. A campaign where 95% of calls revert proves nothing, so
-///      `callSummary()` prints the counts and the run is only meaningful if
-///      every bucket is non-zero.
+///      Each action bounds its inputs so most calls succeed. If almost every
+///      call reverts, a passing run doesn't mean much, so `callSummary()`
+///      prints the counts and every action should be above zero.
 contract Handler is CommonBase, StdCheats, StdUtils {
     MemeTaxFixed public immutable token;
     MockDexRouter public immutable router;
@@ -140,8 +139,8 @@ contract Handler is CommonBase, StdCheats, StdUtils {
                           PRIVILEGED SETTERS
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Bounds run past MAX_TAX on purpose: the cap has to hold against a
-    ///      fuzzer that keeps trying to breach it, not just against one unit test.
+    /// @dev The bounds go past MAX_TAX on purpose, so the fuzzer keeps trying
+    ///      values above the cap.
     function setTaxes(uint256 buyTax, uint256 sellTax) external countCall("setTaxes") {
         buyTax = bound(buyTax, 0, 2 * token.MAX_TAX());
         sellTax = bound(sellTax, 0, 2 * token.MAX_TAX());
@@ -150,8 +149,8 @@ contract Handler is CommonBase, StdCheats, StdUtils {
         try token.setTaxes(buyTax, sellTax) {} catch {}
     }
 
-    /// @dev Kept above 1% of supply so the campaign stays productive; the floor
-    ///      itself is covered by `Retest_Fixed.test_retest_L02_max_wallet_has_a_floor`.
+    /// @dev Kept above 1% of supply so transfers don't keep failing. The floor
+    ///      itself is tested in `Retest_Fixed.test_retest_L02_max_wallet_has_a_floor`.
     function setMaxWallet(uint256 value) external countCall("setMaxWallet") {
         uint256 supply = token.totalSupply();
         value = bound(value, supply / 100, supply);
@@ -171,8 +170,8 @@ contract Handler is CommonBase, StdCheats, StdUtils {
                               SUMS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Every address that can hold the token. No mint or burn exists
-    ///         after construction, so this must always equal `totalSupply`.
+    /// @notice Sum over every address that can hold the token. There is no mint
+    ///         or burn after the constructor, so this should equal `totalSupply`.
     function sumBalances() external view returns (uint256 total) {
         total += token.balanceOf(owner);
         total += token.balanceOf(address(token));
@@ -186,7 +185,7 @@ contract Handler is CommonBase, StdCheats, StdUtils {
         }
     }
 
-    /// @notice Every ETH the contract has promised to somebody.
+    /// @notice All the ETH the contract currently owes.
     function sumEthObligations() external view returns (uint256 total) {
         total += token.feesOwed(marketingWallet);
         total += token.feesOwed(devWallet);

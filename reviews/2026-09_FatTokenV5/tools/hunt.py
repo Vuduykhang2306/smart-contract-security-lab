@@ -1,4 +1,6 @@
-import json, urllib.request, urllib.parse, time, re, sys
+"""Pull ERC-20 tokens from Blockscout for ten memecoin keywords into pool.json."""
+import json, urllib.request, urllib.parse, time, sys
+
 B = "https://eth.blockscout.com/api/v2"
 def get(path, params=None, retries=2):
     url = B + path + ("?" + urllib.parse.urlencode(params) if params else "")

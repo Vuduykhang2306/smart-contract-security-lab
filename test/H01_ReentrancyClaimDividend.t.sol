@@ -26,7 +26,7 @@ contract H01_ReentrancyClaimDividend is BaseSetup {
 
         attacker.attack();
 
-        // The attacker walked away with the whole pool, not just its 1 ETH share.
+        // The attacker ends up with the whole pool instead of its 1 ETH.
         assertEq(address(attacker).balance, 10 ether, "attacker drained the pool");
         assertEq(address(token).balance, 0, "pool is empty");
         assertGt(attacker.reentries(), 0, "the drain happened through re-entry");

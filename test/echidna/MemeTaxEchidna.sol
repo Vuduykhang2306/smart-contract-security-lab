@@ -6,15 +6,15 @@ import {MockDexRouter} from "../mocks/MockDexRouter.sol";
 import {Puppet} from "./Puppet.sol";
 
 /// @notice Negative control: the same four properties, run against the
-///         UNPATCHED contract.
+///         unpatched contract.
 ///
-/// @dev A fuzzing campaign that passes proves nothing until you have shown it
-///      can fail. This harness is `MemeTaxFixedEchidna` with one line changed -
-///      the token it deploys - and the same action set, the same bounds, the
-///      same properties. Three differences are forced by the unpatched API and
-///      are marked where they occur.
+/// @dev A passing fuzz run doesn't show much until you've seen the same
+///      properties fail. This harness is `MemeTaxFixedEchidna` with one line
+///      changed (the token it deploys), and the same actions, bounds and
+///      properties. The unpatched API forces three small differences, and each
+///      one is marked below.
 ///
-///      Expected result, and the reason this file is committed:
+///      Expected result (this is why the file is in the repo):
 ///
 ///        INV-01 supply conserved      passes  - no mint or burn either way
 ///        INV-02 ETH obligations backed FAILS  - H-04: `_swapBack` pays the fee
@@ -25,14 +25,14 @@ import {Puppet} from "./Puppet.sol";
 ///                                               the harness, not by the token;
 ///                                               L-02 is covered by the retest
 ///
-///      INV-02 is the one worth the file. Nobody told the fuzzer about H-04; it
-///      gets there from an ordinary sequence of deposit, buy, sell.
+///      INV-02 is the important one. The fuzzer isn't told anything about H-04;
+///      it gets there with a normal deposit, buy, sell sequence.
 ///
 ///      Run: echidna . --contract MemeTaxEchidna --config echidna.control.yaml
 contract MemeTaxEchidna {
-    // Difference 1: the unpatched contract declares neither of these. They are
-    // the numbers the fix introduced, restated here so both harnesses check the
-    // same property rather than two differently worded ones.
+    // Difference 1: the unpatched contract has neither of these constants.
+    // They are the values the fix added, copied here so both harnesses check
+    // exactly the same property.
     uint256 internal constant MAX_TAX = 10;
     uint256 internal constant MIN_MAX_WALLET_BPS = 10;
 
@@ -48,15 +48,15 @@ contract MemeTaxEchidna {
     Puppet public immutable devWallet;
     Puppet[ACTOR_COUNT] public actors;
 
-    // Action counters. Echidna prints nothing at the end of a run, so coverage
-    // is read off `corpusDir/covered.*.txt` instead; these are here so a reader
-    // can also check the mix from a debugger or a follow-up call.
+    // Action counters. Echidna doesn't print a summary at the end of a run, so
+    // coverage is read from `corpusDir/covered.*.txt` instead. The counters are
+    // still here so the mix can be checked from a debugger or a later call.
     mapping(bytes32 => uint256) public calls;
 
     address internal immutable weth;
 
     /// @dev Payable because Echidna funds the harness by sending `balanceContract`
-    ///      with the deployment transaction; a non-payable constructor rejects it.
+    ///      with the deploy transaction, and a non-payable constructor rejects it.
     constructor() payable {
         weth = address(new Puppet());
 
@@ -82,10 +82,10 @@ contract MemeTaxEchidna {
                               HELPERS
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Stand-in for `StdUtils.bound`, which lives in forge-std and is not
-    ///      available here. Modulo skews the distribution towards the low end
-    ///      of a wide range; every call site below uses a range narrow enough
-    ///      that it does not matter.
+    /// @dev Replacement for `StdUtils.bound`, which is in forge-std and not
+    ///      available here. Modulo leans toward the low end of a wide range,
+    ///      but every call below uses a range narrow enough that it doesn't
+    ///      matter.
     function _bound(uint256 x, uint256 lo, uint256 hi) internal pure returns (uint256) {
         if (hi <= lo) return lo;
         return lo + (x % (hi - lo + 1));
@@ -126,9 +126,9 @@ contract MemeTaxEchidna {
         uint256 held = token.balanceOf(address(from));
         if (held == 0) return;
 
-        // A sell that trips the fee swap needs the router to be able to pay for
-        // it, or the whole transfer reverts inside the mock and the sequence
-        // teaches the fuzzer nothing. Router solvency is not what is under test.
+        // A sell that triggers the fee swap needs the router to have enough
+        // ETH, otherwise the whole transfer reverts inside the mock and the
+        // fuzzer learns nothing. Router solvency isn't what we're testing.
         uint256 sitting = token.balanceOf(address(token));
         if (sitting >= token.swapThreshold()) {
             uint256 need = sitting * router.ethPerToken() / 1e18;
@@ -157,8 +157,9 @@ contract MemeTaxEchidna {
                              ETH PATHS
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Setup in the Foundry harness, an action here. The router pays for
-    ///      fee swaps out of its own balance, so somebody has to fill it.
+    /// @dev This is part of setup in the Foundry harness but an action here.
+    ///      The router pays for fee swaps from its own balance, so something
+    ///      has to fund it.
     function fundRouter(uint256 amount) external {
         _count("fundRouter");
         uint256 available = address(this).balance;
@@ -186,9 +187,9 @@ contract MemeTaxEchidna {
         who.exec(address(token), abi.encodeCall(token.claimDividend, ()));
     }
 
-    /// @dev Difference 2: there is no `withdrawFees` on the unpatched contract: `_swapBack`
-    ///      pushes the ETH out. Kept as a no-op so the two action sets line up
-    ///      one-for-one and neither campaign gets an extra degree of freedom.
+    /// @dev Difference 2: the unpatched contract has no `withdrawFees`, because
+    ///      `_swapBack` pushes the ETH out. Kept as a no-op so both harnesses
+    ///      have the same list of actions.
     function withdrawFees(bool) external {
         _count("withdrawFees");
     }
@@ -197,8 +198,8 @@ contract MemeTaxEchidna {
                         PRIVILEGED SETTERS
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Range runs past MAX_TAX on purpose. The cap has to hold against a
-    ///      fuzzer that keeps trying to breach it, not just against one unit test.
+    /// @dev The range goes past MAX_TAX on purpose, so the fuzzer keeps trying
+    ///      values above the cap.
     function setTaxes(uint256 buyTax, uint256 sellTax) external {
         _count("setTaxes");
         uint256 cap = MAX_TAX;
@@ -227,27 +228,27 @@ contract MemeTaxEchidna {
                              PROPERTIES
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice INV-01 - no mint or burn path exists after construction, so the
-    ///         balances of every address that can hold the token must add up to
-    ///         `totalSupply` no matter what sequence ran.
+    /// @notice INV-01 - there is no mint or burn after the constructor, so the
+    ///         balances of all addresses that can hold the token must add up
+    ///         to `totalSupply`.
     function echidna_supplyIsConserved() public view returns (bool) {
         return _sumBalances() == token.totalSupply();
     }
 
-    /// @notice INV-02 - fee credits and dividend credits are both paid from
-    ///         `address(token).balance`. Their sum must never exceed it, or the
-    ///         contract has promised ETH it does not hold.
+    /// @notice INV-02 - owed fees and owed dividends are both paid from
+    ///         `address(token).balance`, so together they can never be more
+    ///         than that balance.
     function echidna_ethObligationsAreBacked() public view returns (bool) {
         return _sumEthObligations() <= address(token).balance;
     }
 
-    /// @notice INV-03 - the cap that closes H-03.
+    /// @notice INV-03 - the tax cap from the H-03 fix.
     function echidna_taxNeverExceedsCap() public view returns (bool) {
         uint256 cap = MAX_TAX;
         return token.buyTax() <= cap && token.sellTax() <= cap;
     }
 
-    /// @notice INV-04 - the floor that closes L-02.
+    /// @notice INV-04 - the max wallet floor from the L-02 fix.
     function echidna_maxWalletHasFloor() public view returns (bool) {
         uint256 floor = token.totalSupply() * MIN_MAX_WALLET_BPS / 10_000;
         return token.maxWallet() >= floor;
@@ -270,10 +271,10 @@ contract MemeTaxEchidna {
         }
     }
 
-    /// @dev Difference 3: no `feesOwed` term. The unpatched contract pushes fee
-    ///      ETH out of the contract inside `_swapBack` instead of booking a
-    ///      debt, so the only obligation left on the books is the dividend
-    ///      ledger - which is exactly why the push can overdraw it.
+    /// @dev Difference 3: no `feesOwed` term. The unpatched contract sends the
+    ///      fee ETH out inside `_swapBack` instead of recording what it owes, so
+    ///      the dividend ledger is the only thing left on the books. That's also
+    ///      why the payout can end up spending the dividend money.
     function _sumEthObligations() internal view returns (uint256 total) {
         for (uint256 i; i < ACTOR_COUNT; ++i) {
             total += token.pendingDividend(address(actors[i]));

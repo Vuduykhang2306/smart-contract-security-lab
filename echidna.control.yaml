@@ -1,36 +1,35 @@
-# Negative control: the same campaign against the UNPATCHED token.
-# Two properties are expected to fail. If they ever stop failing, the
-# harness has gone blind and the green run next door means nothing.
-# Run: echidna . --contract MemeTaxEchidna --config echidna.yaml
+# Negative control: the same campaign against the unpatched token.
+# Two properties should fail. If they ever stop failing, the harness can't
+# reach the bugs anymore and the passing run in echidna.yaml means nothing.
+# Run: echidna . --contract MemeTaxEchidna --config echidna.control.yaml
 
-# The four properties are `echidna_`-prefixed view functions that must stay
-# true after every call, which is the same shape as a Foundry invariant.
+# The four properties are view functions starting with `echidna_` that must
+# stay true after every call, same idea as a Foundry invariant.
 testMode: property
 
-# Long sequences matter here: INV-02 only breaks if fees and dividends are
-# accrued and then claimed in an order that leaves one of them unbacked.
+# Long sequences help here: INV-02 only breaks if fees and dividends are added
+# and then claimed in an order that leaves one of them without ETH behind it.
 seqLen: 100
 testLimit: 20000
 shrinkLimit: 5000
 
-# Keeps the sequences that reached new code, plus `covered.*.txt`, which is how
-# coverage is checked - Echidna prints no call summary of its own.
+# Saves the sequences that reached new code, plus `covered.*.txt`. That file is
+# how I check coverage, since Echidna doesn't print a call summary.
 corpusDir: echidna-corpus-control
 
-# No cheatcodes, so ETH for `fundRouter` and `depositDividend` has to come from
-# the harness's own balance. 100,000 ETH, matching the Foundry setup's vm.deal.
+# No cheatcodes, so the ETH for `fundRouter` and `depositDividend` comes from
+# the harness balance. 100,000 ETH, same as the vm.deal in the Foundry setup.
 balanceContract: 100000000000000000000000
 
-# Only the harness is fuzzed. The Puppets exist to give calls a sender, not to
-# be called directly.
+# Only the harness gets fuzzed. The Puppets are there to give calls a different
+# sender, not to be called directly.
 allContracts: false
 
-# Fixed seed and a single worker so the control is reproducible: it has to fail
-# the same two properties on every machine, not merely fail somewhere. The main
-# campaign next door is left unseeded on purpose, so each run explores
-# differently.
+# Fixed seed and one worker so the control is reproducible: it has to fail the
+# same two properties on every machine. The main campaign in echidna.yaml has
+# no seed on purpose, so each run explores a bit differently.
 seed: 1590638489847535201
 workers: 1
 
-# crytic-compile skips `test/` under Foundry by default, and the harness lives there.
+# crytic-compile skips `test/` for Foundry projects by default, and the harness is in there.
 cryticArgs: ["--foundry-compile-all"]

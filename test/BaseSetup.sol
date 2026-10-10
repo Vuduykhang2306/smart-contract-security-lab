@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {MemeTax} from "../src/MemeTax.sol";
 import {MockDexRouter} from "./mocks/MockDexRouter.sol";
 
-/// @notice Shared deployment used by every proof of concept.
+/// @notice Shared setup for all the PoC tests.
 abstract contract BaseSetup is Test {
     MemeTax internal token;
     MockDexRouter internal router;

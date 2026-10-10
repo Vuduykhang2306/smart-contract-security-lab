@@ -1,4 +1,5 @@
-import re, sys, json, os
+"""Quick scan of cached sources: owner-only functions and red-flag patterns."""
+import re, json, os
 
 CANDS = [
     ("Shibmerican", "0x440238CC07186aDEA6653a2E8cb9a24737615609"),

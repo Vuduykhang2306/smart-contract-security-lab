@@ -15,7 +15,7 @@ contract H03_UnboundedTax is BaseSetup {
         assertEq(token.buyTax(), 5);
         assertEq(token.sellTax(), 5);
 
-        // Nothing stops the owner from changing that in a single transaction.
+        // The owner can change that in one transaction.
         vm.prank(token.owner());
         token.setTaxes(0, 100);
         assertEq(token.sellTax(), 100, "sell tax is now 100%");
@@ -23,7 +23,7 @@ contract H03_UnboundedTax is BaseSetup {
         uint256 pairBefore = token.balanceOf(pair);
         _sell(alice, 1_000e18);
 
-        // Alice's sell delivers nothing to the pool: the token is a honeypot.
+        // Alice's sell sends nothing to the pool, so the token is a honeypot now.
         assertEq(token.balanceOf(pair) - pairBefore, 0, "seller received nothing");
         assertEq(token.balanceOf(alice), 9_000e18, "alice still lost the tokens");
     }

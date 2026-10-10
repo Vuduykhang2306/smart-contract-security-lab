@@ -30,13 +30,12 @@ interface IRouter {
     ) external;
 }
 
-/// @notice Proofs of concept for the FatTokenV5 template review.
+/// @notice PoCs for the FatTokenV5 template review.
 ///
-/// @dev The template is the audit subject, not one deployment of it. Findings
-///      that need an owner are proved on a fresh instance configured the way
-///      the launchpad lets a deployer configure it; findings that live in the
-///      code regardless of configuration are proved against the real
-///      BabyGOAT bytecode on a mainnet fork.
+/// @dev I'm reviewing the template, so findings that need an owner are tested
+///      on a fresh instance, set up the way the launchpad lets a deployer set
+///      it up. Findings that don't depend on configuration are tested against
+///      the real BabyGOAT bytecode on a mainnet fork.
 ///
 ///      Run with:
 ///        ETH_RPC_URL=https://ethereum-rpc.publicnode.com forge test --match-path "test/fork/*" -vv
@@ -127,8 +126,8 @@ abstract contract FatTokenBase is Test {
         vm.stopPrank();
     }
 
-    /// @dev Approval is done first and on its own, so `vm.expectRevert` lands on
-    ///      the swap rather than on the approve.
+    /// @dev The approve is done first, separately, so `vm.expectRevert` checks
+    ///      the swap and not the approve.
     function _sellReverts(FatTokenV5 token, address who, uint256 amount) internal {
         address[] memory path = new address[](2);
         path[0] = address(token);
@@ -143,9 +142,9 @@ abstract contract FatTokenBase is Test {
     }
 }
 
-/// @notice T-01 (High) - the kill block turns every early buyer into a
-///         permanent non-seller, and `setkb()` has no ceiling, so the owner can
-///         extend the window indefinitely after launch.
+/// @notice T-01 (High) - the kill block blacklists every early buyer for good,
+///         and `setkb()` has no upper limit, so the owner can stretch the
+///         window as long as they want after launch.
 contract T01_KillBlockHoneypot is FatTokenBase {
     FatTokenV5 internal token;
 
@@ -179,8 +178,8 @@ contract T01_KillBlockHoneypot is FatTokenBase {
         _buy(token, holder, 1 ether);
         assertEq(token.isReward(holder), 0, "buyer after the window is clean");
 
-        // `setkb` has no upper bound and no restriction on being called after
-        // launch, so the owner reopens the window for the next ~30 years.
+        // `setkb` has no upper bound and can be called after launch, so the
+        // owner reopens the window for decades (100M blocks).
         vm.prank(deployer);
         token.setkb(100_000_000);
 
@@ -274,15 +273,15 @@ contract T05_FlagDesync is FatTokenBase {
 
         // The fee is live.
         assertEq(token.transferFee(), 500, "wallet-to-wallet transfers now taxed 5%");
-        // The flag anyone would read to find that out is not.
+        // But the flag people would check still says false.
         assertEq(token.enableTransferFee(), false, "but the public flag still says false");
     }
 }
 
 /// @notice T-06 (Low) - the airdrop loop subtracts `airdropNumbs` from `amount`
 ///         after the fact, so any trade smaller than that underflows and
-///         reverts. Proved against the live BabyGOAT bytecode, where the loop
-///         is active and can never be switched off: `setAirDropEnable` is
+///         reverts. Tested against the live BabyGOAT bytecode, where the loop
+///         is on and can never be turned off: `setAirDropEnable` is
 ///         `onlyOwner` and ownership is renounced.
 contract T06_AirdropUnderflow is FatTokenBase {
     FatTokenV5 internal token;

@@ -1,11 +1,12 @@
-"""Tim cac token khac dung chung template FatTokenV5 va xem con chu so huu khong.
+"""Find other tokens built from the FatTokenV5 template and check if they still have an owner.
 
-Nhan dien bang chu ky ham dac trung cua template, goi eth_call theo lo qua JSON-RPC.
+The template is recognised by two unusual getters. The calls go out as batched
+eth_call requests over plain JSON-RPC.
 """
 import json, urllib.request, sys
 
 RPC = "https://ethereum-rpc.publicnode.com"
-# selector 4 byte, lay bang: cast sig "airdropNumbs()"
+# 4-byte selectors, from: cast sig "airdropNumbs()"
 SEL = {
     "airdropNumbs": "0xe32759cf",
     "kb":           "0x2dab693f",
@@ -13,7 +14,7 @@ SEL = {
 }
 
 def batch(calls):
-    """calls: list of (id, to, data). Tra ve dict id -> result hex hoac None."""
+    """calls is a list of (id, to, data). Returns a dict of id -> result hex (or None)."""
     payload = [{"jsonrpc": "2.0", "id": i, "method": "eth_call",
                 "params": [{"to": to, "data": data}, "latest"]} for i, to, data in calls]
     req = urllib.request.Request(RPC, data=json.dumps(payload).encode(),
@@ -45,15 +46,15 @@ pool = json.load(open("pool.json"))
 addrs = sorted({(v.get("address_hash") or "") for v in pool.values() if v.get("address_hash")})
 print("dia chi trong pool:", len(addrs), file=sys.stderr)
 
-# Tang 1: co ham airdropNumbs() -> rat nhieu kha nang la template nay
+# Step 1: has airdropNumbs(), so it's very likely this template
 a1 = probe(addrs, SEL["airdropNumbs"])
 print("co airdropNumbs():", len(a1), file=sys.stderr)
 
-# Tang 2: xac nhan them bang kb()
+# Step 2: confirm with kb()
 a2 = probe(sorted(a1), SEL["kb"])
 print("xac nhan them bang kb():", len(a2), file=sys.stderr)
 
-# Tang 3: doc owner()
+# Step 3: read owner()
 owners = probe(sorted(a2), SEL["owner"])
 
 byaddr = {(v.get("address_hash") or "").lower(): v for v in pool.values()}

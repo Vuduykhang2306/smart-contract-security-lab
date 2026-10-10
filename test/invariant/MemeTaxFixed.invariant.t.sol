@@ -6,14 +6,13 @@ import {MemeTaxFixed} from "../../src/fixed/MemeTaxFixed.sol";
 import {MockDexRouter} from "../mocks/MockDexRouter.sol";
 import {Handler} from "./Handler.sol";
 
-/// @notice Invariant campaign against the remediated contract.
+/// @notice Invariant campaign against the patched contract.
 ///
-/// @dev The unit tests in `test/` each prove one attack I thought of. These
-///      four properties are the ones that have to survive attack sequences I
-///      did not think of. INV-02 is the one worth the campaign: `feesOwed` and
-///      `pendingDividend` are paid out of the same ETH balance, so if the two
-///      ledgers can ever sum past the balance, one claimant drains another's
-///      money and the first person to call `withdrawFees` wins.
+/// @dev Each unit test in `test/` checks one attack I thought of. These four
+///      properties have to hold for call sequences I didn't think of. INV-02
+///      matters most: `feesOwed` and `pendingDividend` are paid from the same
+///      ETH balance, so if the two together can ever go above that balance,
+///      one person's claim gets paid with someone else's money.
 contract MemeTaxFixedInvariants is Test {
     MemeTaxFixed internal token;
     MockDexRouter internal router;
@@ -44,7 +43,7 @@ contract MemeTaxFixedInvariants is Test {
             token.transfer(actor, 15_000e18);
         }
 
-        // Liquidity sitting in the pair so buys have something to draw on.
+        // Some liquidity in the pair so buys have tokens to take.
         vm.prank(deployer);
         token.transfer(pair, 300_000e18);
 
@@ -52,36 +51,36 @@ contract MemeTaxFixedInvariants is Test {
         targetContract(address(handler));
     }
 
-    /// @notice INV-01 - no mint or burn path exists after construction, so the
-    ///         balances of every address that can hold the token must add up to
-    ///         `totalSupply` no matter what sequence ran.
+    /// @notice INV-01 - there is no mint or burn after the constructor, so the
+    ///         balances of all addresses that can hold the token must add up
+    ///         to `totalSupply`.
     function invariant_supplyIsConserved() public view {
         assertEq(handler.sumBalances(), token.totalSupply(), "INV-01 supply not conserved");
     }
 
-    /// @notice INV-02 - fee credits and dividend credits are both paid from
-    ///         `address(token).balance`. Their sum must never exceed it, or the
-    ///         contract has promised ETH it does not hold.
+    /// @notice INV-02 - owed fees and owed dividends are both paid from
+    ///         `address(token).balance`, so together they can never be more
+    ///         than that balance.
     function invariant_ethObligationsAreBacked() public view {
         assertLe(handler.sumEthObligations(), address(token).balance, "INV-02 ETH obligations exceed balance");
     }
 
-    /// @notice INV-03 - the cap that closes H-03 has to hold against a fuzzer
-    ///         that keeps calling `setTaxes` with values past it.
+    /// @notice INV-03 - the H-03 tax cap has to hold even when the fuzzer keeps
+    ///         calling `setTaxes` with values above it.
     function invariant_taxNeverExceedsCap() public view {
         assertLe(token.buyTax(), token.MAX_TAX(), "INV-03 buy tax above cap");
         assertLe(token.sellTax(), token.MAX_TAX(), "INV-03 sell tax above cap");
     }
 
-    /// @notice INV-04 - the floor that closes L-02.
+    /// @notice INV-04 - the max wallet floor from the L-02 fix.
     function invariant_maxWalletHasFloor() public view {
         uint256 floor = token.totalSupply() * token.MIN_MAX_WALLET_BPS() / 10_000;
         assertGe(token.maxWallet(), floor, "INV-04 max wallet below floor");
     }
 
-    /// @notice Not an invariant. Prints the action mix so a reader can confirm
-    ///         the campaign actually exercised every path instead of reverting
-    ///         its way to a green tick.
+    /// @notice Not a real invariant. It prints how many times each action ran,
+    ///         so you can check that the campaign hit every path and didn't
+    ///         just pass because most calls reverted.
     function invariant_callSummary() public view {
         handler.callSummary();
     }

@@ -4,10 +4,10 @@ pragma solidity 0.8.24;
 import {BaseSetup} from "./BaseSetup.sol";
 
 /// @notice M-01 (Medium) - `_swapBack()` has no reentrancy lock.
-/// @dev Re-entry is currently prevented only as a side effect of
-///      `isExcludedFromFee[address(token)]` being true. That mapping is an
-///      ordinary admin switch, not a reentrancy guard, and nothing in the
-///      contract documents or enforces the dependency.
+/// @dev Right now re-entry is only stopped because
+///      `isExcludedFromFee[address(token)]` is true. That mapping is a normal
+///      admin setting, and nothing in the contract says it is also acting as
+///      a reentrancy guard.
 contract M01_SwapBackNoLock is BaseSetup {
     function setUp() public {
         _deploy();
@@ -26,7 +26,7 @@ contract M01_SwapBackNoLock is BaseSetup {
     }
 
     function test_M01_un_excluding_the_token_contract_bricks_every_sell() public {
-        // An admin action with no obvious connection to the swap path.
+        // An admin call that doesn't look related to the swap at all.
         vm.prank(token.owner());
         token.setExcludedFromFee(address(token), false);
 
@@ -37,7 +37,7 @@ contract M01_SwapBackNoLock is BaseSetup {
         vm.expectRevert();
         token.transfer(pair, 1_000e18);
 
-        // Holders are stuck: the balance never moved.
+        // Alice's balance didn't move, so she can't get out.
         assertEq(token.balanceOf(alice), 50_000e18, "alice could not sell");
     }
 }

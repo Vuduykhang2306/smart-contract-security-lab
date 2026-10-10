@@ -13,7 +13,7 @@ contract H02_BlacklistAccessControl is BaseSetup {
     function test_H02_any_address_can_freeze_any_holder() public {
         assertNotEq(mallory, token.owner(), "mallory is not the owner");
 
-        // Mallory is an ordinary address with no role of any kind.
+        // Mallory is a normal address with no role.
         vm.prank(mallory);
         token.setBlacklist(alice, true);
 

@@ -1,3 +1,4 @@
+"""Score cached sources against six tax-token markers and write shortlist.json."""
 import json, re, os, glob
 
 pool = json.load(open("pool.json"))

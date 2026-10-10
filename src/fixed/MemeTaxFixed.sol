@@ -5,14 +5,14 @@ import {MinimalERC20} from "../base/MinimalERC20.sol";
 import {IDexRouter} from "../interfaces/IDexRouter.sol";
 
 /// @title MemeTaxFixed
-/// @notice Remediated version of `src/MemeTax.sol`. Every change maps to a
-///         finding in `reports/2026-09_MemeTax_audit-report.md` and is marked
-///         with the finding ID. `test/Retest_Fixed.t.sol` replays each original
-///         proof of concept against this contract and asserts it now fails.
+/// @notice Patched version of `src/MemeTax.sol`. Each change is tagged with
+///         the finding ID from `reports/2026-09_MemeTax_audit-report.md`.
+///         `test/Retest_Fixed.t.sol` runs every original PoC against this
+///         contract and checks that it no longer works.
 contract MemeTaxFixed is MinimalERC20 {
-    /// @notice [H-03] Hard ceiling on either tax, enforced in the setter.
+    /// @notice [H-03] Max value for either tax, checked in the setter.
     uint256 public constant MAX_TAX = 10;
-    /// @notice [L-02] Floor for `maxWallet`, expressed in basis points of supply.
+    /// @notice [L-02] Lowest allowed `maxWallet`, in basis points of supply.
     uint256 public constant MIN_MAX_WALLET_BPS = 10; // 0.10%
 
     address public owner;
@@ -31,15 +31,15 @@ contract MemeTaxFixed is MinimalERC20 {
     mapping(address => bool) public isBlacklisted;
     mapping(address => bool) public isExcludedFromFee;
     mapping(address => uint256) public pendingDividend;
-    /// @notice [M-02] Fees are accrued and pulled instead of pushed.
+    /// @notice [M-02] Fees are recorded here and each wallet withdraws its own.
     mapping(address => uint256) public feesOwed;
 
-    /// @notice [M-01] Explicit reentrancy lock for the fee swap.
+    /// @notice [M-01] Lock so the fee swap can't run twice in one transfer.
     bool private _inSwap;
-    /// @notice [H-01] Reentrancy lock for the ETH withdrawal paths.
+    /// @notice [H-01] Reentrancy lock for the two ETH withdrawals.
     uint256 private _locked = 1;
 
-    // [I-01] Every privileged state change is observable off-chain.
+    // [I-01] Every admin change emits an event so it can be seen off-chain.
     event TaxesUpdated(uint256 buyTax, uint256 sellTax);
     event BlacklistUpdated(address indexed account, bool blacklisted);
     event FeeExclusionUpdated(address indexed account, bool excluded);
@@ -110,8 +110,8 @@ contract MemeTaxFixed is MinimalERC20 {
         emit PairUpdated(_pair);
     }
 
-    /// @dev [H-03] Neither tax can exceed `MAX_TAX`, so the contract cannot be
-    ///      turned into a honeypot after launch.
+    /// @dev [H-03] Both taxes are capped at `MAX_TAX`, so the owner can't turn
+    ///      the token into a honeypot after launch.
     function setTaxes(uint256 _buyTax, uint256 _sellTax) external onlyOwner {
         if (_buyTax > MAX_TAX) revert TaxTooHigh(_buyTax, MAX_TAX);
         if (_sellTax > MAX_TAX) revert TaxTooHigh(_sellTax, MAX_TAX);
@@ -120,7 +120,7 @@ contract MemeTaxFixed is MinimalERC20 {
         emit TaxesUpdated(_buyTax, _sellTax);
     }
 
-    /// @dev [H-02] Restricted to the owner.
+    /// @dev [H-02] Owner only now.
     function setBlacklist(address account, bool blacklisted) external onlyOwner {
         isBlacklisted[account] = blacklisted;
         emit BlacklistUpdated(account, blacklisted);
@@ -131,7 +131,7 @@ contract MemeTaxFixed is MinimalERC20 {
         emit FeeExclusionUpdated(account, excluded);
     }
 
-    /// @dev [L-02] Cannot be driven low enough to freeze ordinary transfers.
+    /// @dev [L-02] Can't be set low enough to freeze normal transfers.
     function setMaxWallet(uint256 _maxWallet) external onlyOwner {
         uint256 minimum = totalSupply * MIN_MAX_WALLET_BPS / 10_000;
         if (_maxWallet < minimum) revert MaxWalletTooLow(_maxWallet, minimum);
@@ -152,7 +152,7 @@ contract MemeTaxFixed is MinimalERC20 {
         pendingDividend[account] += msg.value;
     }
 
-    /// @dev [H-01] Checks-Effects-Interactions plus an explicit guard.
+    /// @dev [H-01] The balance is cleared before the call, and there is a guard.
     function claimDividend() external nonReentrant {
         uint256 amount = pendingDividend[msg.sender];
         if (amount == 0) revert NothingToClaim();
@@ -165,8 +165,8 @@ contract MemeTaxFixed is MinimalERC20 {
         emit DividendClaimed(msg.sender, amount);
     }
 
-    /// @dev [M-02] Fee wallets pull their own ETH. A wallet that cannot accept
-    ///      ETH can no longer strand funds or block anyone else's sell.
+    /// @dev [M-02] Each fee wallet withdraws its own ETH. If a wallet can't
+    ///      receive ETH, only its own withdrawal fails.
     function withdrawFees() external nonReentrant {
         uint256 amount = feesOwed[msg.sender];
         if (amount == 0) revert NothingToClaim();
@@ -186,8 +186,8 @@ contract MemeTaxFixed is MinimalERC20 {
     function _transfer(address from, address to, uint256 amount) internal override {
         if (isBlacklisted[from] || isBlacklisted[to]) revert Blacklisted();
 
-        // [M-01] The lock is explicit and no longer depends on the fee-exclusion
-        // mapping happening to contain this contract.
+        // [M-01] Uses the explicit lock instead of relying on this contract
+        // being in the fee-exclusion mapping.
         if (!_inSwap && to == pair && !isExcludedFromFee[from] && balanceOf[address(this)] >= swapThreshold) {
             _swapBack();
         }
