@@ -146,9 +146,10 @@ Bản đầy đủ ở [`docs/audit-process.md`](docs/audit-process.md). Ngắn 
    làm phần nhanh trước: kiểm soát quyền, rồi CEI, rồi số học, rồi giới hạn
    giá trị.
 3. Phân tích tĩnh (`forge lint`) để lấy manh mối, không coi output của nó là
-   finding. Nó bắt được M-02 và gợi ý tới M-01, nhưng không bắt được H-02 hay
-   H-03 vì cả hai đều là lỗi thiếu code, không có gì để so mẫu. Mục 5 của báo
-   cáo ghi cái nào bị loại và vì sao.
+   finding. Trong CI nó cảnh báo đúng các dòng của H-01, M-02 và L-01, nhưng
+   không bắt được H-02 hay H-03 vì cả hai đều là lỗi thiếu code, không có gì
+   để so mẫu. Mục 5 của báo cáo liệt kê từng cảnh báo và nó ứng với finding
+   nào.
 4. Có PoC rồi mới viết báo cáo. Finding nào không có test fail thì không đưa
    vào. Khoảng một nửa số chỗ tôi nghi ban đầu bị loại ở bước này.
 5. Mức độ = tác động × khả năng xảy ra. Rủi ro tập trung quyền được chấm theo

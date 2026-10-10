@@ -152,9 +152,10 @@ short:
    cheapest checks first: access control, then CEI, then arithmetic, then
    bounds.
 3. Static analysis (`forge lint`) for leads. I don't treat its output as
-   findings. It caught M-02 and pointed at M-01. It couldn't catch H-02 or
-   H-03, because both are missing code and there's nothing for a pattern to
-   match. Section 5 of the report lists what I dismissed and why.
+   findings. In CI it flags the lines behind H-01, M-02 and L-01. It can't
+   catch H-02 or H-03, because both are missing code and there's nothing for a
+   pattern to match. Section 5 of the report lists every warning and what it
+   corresponds to.
 4. PoC before write-up. A finding without a failing test doesn't go in the
    report. About half of what I suspected was dropped at this step.
 5. Severity is impact × likelihood. Centralisation risk is rated by what it

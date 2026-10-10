@@ -593,19 +593,26 @@ both ETH paths.
 
 ## 5. Static analysis
 
-`forge lint` was run over `src/MemeTax.sol`. Its output is recorded here for
-completeness; each item was verified by hand before being accepted or
-dismissed.
+`forge lint` (Foundry 1.8.5, as run in CI) reports 11 warnings on
+`src/MemeTax.sol`. All of them are listed here with the finding each one
+corresponds to.
 
 | Lint | Location | Outcome |
 |---|---|---|
-| `unchecked-call` | `_swapBack()`, both payouts | Confirmed, became M-02 |
-| `arbitrary-send-eth` | `_swapBack()`, both payouts | Dismissed: the destinations are set by the owner, not supplied by the caller. Kept as context for M-02. |
-| `reentrancy-events` | `_transfer` / `_swapBack` | Dismissed as written, but the underlying observation led to M-01 |
+| `reentrancy-eth` | `claimDividend()`, line 106 | Matches H-01 |
+| `unchecked-call` (x2) | `_swapBack()`, lines 174-175 | Confirmed, became M-02 |
+| `arbitrary-send-eth` (x2) | `_swapBack()`, lines 174-175 | Dismissed: the destinations are set by the owner, not supplied by the caller. Kept as context for M-02. |
+| `divide-before-multiply` | `_transfer()`, line 141 | Matches L-01 |
+| `missing-events-arithmetic` | `setTaxes()`, line 70 | Part of I-01 |
+| `uninitialized-local` | `_transfer()`, line 141 (`taxRate`) | Dismissed: `taxRate` stays 0 when a transfer is neither a buy nor a sell, which is the intended untaxed path. `MemeTaxFixed` keeps the same pattern. |
+| `missing-zero-check` (x3) | constructor `_marketingWallet` and `_devWallet` (line 40), `setPair()` (line 62) | Not triaged in version 1.0 |
 
-The two findings the linter did not raise, H-02 (missing modifier) and H-03
-(missing bound), are both defects of absence. There is nothing in the code to
-pattern-match on, which is why the checklist pass in section 2 step 2 exists.
+The linter does not raise H-02, H-03, H-04, M-01 or L-02. H-02 (missing
+modifier) and H-03 (missing bound) are defects of absence: there is nothing in
+the code to pattern-match on, which is why the checklist pass in section 2
+step 2 exists. The warnings on lines 174-175 are about the return values and
+the destinations, not about how much is paid out, so they don't point at H-04
+either.
 
 ## 6. Notes on what this report does not cover
 
