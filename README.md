@@ -21,10 +21,11 @@ forge test -vv
 ```
 
 ```
-Ran 10 test suites: 23 tests passed, 0 failed
+Ran 11 test suites: 27 tests passed, 0 failed
   13 exploits against src/MemeTax.sol
    9 retests against src/fixed/MemeTaxFixed.sol
    1 invariant campaign over the remediated contract (4 properties)
+   4 triage tests for the setPair lint (not a numbered finding yet)
 ```
 
 The same four properties also run under [Echidna](test/echidna/). There's also
@@ -130,6 +131,7 @@ test/
   Retest_Fixed.t.sol       every exploit replayed against the fix
   invariant/               4 properties over the remediated contract
   echidna/                 the same 4 under Echidna, plus the negative control
+  triage/                  PoCs for lint warnings that aren't numbered findings yet
   attackers/, mocks/       attacker contract and a Uniswap V2 router stand-in
 reports/
   2026-09_MemeTax_audit-report.md

@@ -605,7 +605,8 @@ corresponds to.
 | `divide-before-multiply` | `_transfer()`, line 141 | Matches L-01 |
 | `missing-events-arithmetic` | `setTaxes()`, line 70 | Part of I-01 |
 | `uninitialized-local` | `_transfer()`, line 141 (`taxRate`) | Dismissed: `taxRate` stays 0 when a transfer is neither a buy nor a sell, which is the intended untaxed path. `MemeTaxFixed` keeps the same pattern. |
-| `missing-zero-check` (x3) | constructor `_marketingWallet` and `_devWallet` (line 40), `setPair()` (line 62) | Not triaged in version 1.0 |
+| `missing-zero-check` (x2) | constructor `_marketingWallet` and `_devWallet` (line 40) | Not triaged in version 1.0 |
+| `missing-zero-check` | `setPair()`, line 62 | Reproduced, not yet rated (see below) |
 
 The linter does not raise H-02, H-03, H-04, M-01 or L-02. H-02 (missing
 modifier) and H-03 (missing bound) are defects of absence: there is nothing in
@@ -613,6 +614,15 @@ the code to pattern-match on, which is why the checklist pass in section 2
 step 2 exists. The warnings on lines 174-175 are about the return values and
 the destinations, not about how much is paid out, so they don't point at H-04
 either.
+
+The `setPair()` warning points at a real problem. `pair` starts as address(0)
+and, in `MemeTax`, can be set back to it. While it is zero, a sell into the
+real pool goes through the max-wallet check as if the pool were a holder.
+The pool holds far more than `maxWallet`, so every sell reverts while buys
+keep working. `MemeTaxFixed` rejects zero in `setPair()`, but it still starts
+with `pair` unset, so the same thing happens between deployment and the first
+`setPair()` call. Proof of concept: `test/triage/Triage_SetPair.t.sol`
+(4 tests). It is not rated or numbered in this version of the report.
 
 ## 6. Notes on what this report does not cover
 
@@ -632,6 +642,6 @@ either.
 ```bash
 git clone https://github.com/Vuduykhang2306/smart-contract-security-lab
 cd smart-contract-security-lab
-forge test -vv                      # 23 tests: 13 exploits, 9 retests, 1 invariant campaign
+forge test -vv                      # 27 tests: 13 exploits, 9 retests, 1 invariant campaign, 4 triage
 forge test --match-contract H01 -vvv  # one finding, with traces
 ```

@@ -21,10 +21,11 @@ forge test -vv
 ```
 
 ```
-Ran 10 test suites: 23 tests passed, 0 failed
+Ran 11 test suites: 27 tests passed, 0 failed
   13 exploit trên src/MemeTax.sol
    9 retest trên src/fixed/MemeTaxFixed.sol
    1 bộ invariant trên bản đã vá (4 tính chất)
+   4 test triage cho lint setPair (chưa thành finding có số)
 ```
 
 ## Các finding
@@ -124,6 +125,7 @@ test/
   Retest_Fixed.t.sol       chạy lại mọi exploit trên bản vá
   invariant/               4 tính chất kiểm trên bản đã vá
   echidna/                 cùng 4 tính chất chạy bằng Echidna, kèm đối chứng âm
+  triage/                  PoC cho các cảnh báo lint chưa thành finding có số
   attackers/, mocks/       contract tấn công và bản mô phỏng router Uniswap V2
 reports/
   2026-09_MemeTax_audit-report.md
